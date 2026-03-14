@@ -135,7 +135,7 @@ function buildGrid(data) {
     }).join("");
 }
 
-// --- VISTA DETALLE CON TRADINGVIEW ---
+// --- VISTA DETALLE CON LOS 14 KPIS RESTAURADOS ---
 function showAssetDetail(ticker) {
     const item = scannerData.find(d => d.ticker === ticker);
     if (!item) return;
@@ -143,39 +143,109 @@ function showAssetDetail(ticker) {
     scannerListView.style.display = "none";
     scannerDetailView.style.display = "block";
 
-    // Formateo de Ticker para TradingView
     let tvTicker = item.ticker;
     if(tvTicker.includes(".BA")) {
         tvTicker = "BCBA:" + tvTicker.replace(".BA", "");
     } else {
-        tvTicker = "NASDAQ:" + tvTicker; // Fallback para USA
+        tvTicker = "NASDAQ:" + tvTicker; 
     }
 
     scannerDetailContent.innerHTML = `
-        <div class="detail-header-card">
-            <h2 class="ticker-title">${item.ticker}</h2>
-            <div class="price">u$s ${item.price}</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h2 style="color: #00f7ff; margin:0; font-size: 28px;">${item.ticker} <span style="font-size: 18px; color: #9ca3af;">(u$s ${item.price})</span></h2>
         </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+            
+            <div class="card complex-card">
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Análisis Técnico</h3>
+                <div class="kpi-grid">
+                    
+                    <div class="kpi-box">
+                        <span class="label">RSI 14 <div class="tooltip">?<div class="tooltiptext">Mide la velocidad de los cambios de precio.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div></span>
+                        <span class="val ${getTechColor(item.rsi, 'rsi')}">${item.rsi || '-'}</span>
+                    </div>
+                    
+                    <div class="kpi-box">
+                        <span class="label">RS Score <div class="tooltip">?<div class="tooltiptext">Fuerza relativa frente al mercado.<br><br><b style="color:#00ff00">Fuerte:</b> > 70 (Liderando)<br><b style="color:#ff0044">Débil:</b> < 50 (Rezagada)</div></div></span>
+                        <span class="val ${getTechColor(item.rsScore, 'score')}">${item.rsScore || '-'}</span>
+                    </div>
+                    
+                    <div class="kpi-box">
+                        <span class="label">Ratio Vol <div class="tooltip">?<div class="tooltiptext">Volumen de hoy vs Promedio de 3 meses.<br><br><b style="color:#00ff00">Interés Fuerte:</b> > 1.2x<br><b style="color:#9ca3af">Normal:</b> ~ 1.0x</div></div></span>
+                        <span class="val ${getTechColor(item.volRatio, 'volRatio')}">${item.volRatio !== '-' ? item.volRatio + 'x' : '-'}</span>
+                    </div>
+                    
+                    <div class="kpi-box">
+                        <span class="label">Dist. EMA 200 <div class="tooltip">?<div class="tooltiptext">Tendencia Macro (Largo Plazo).<br><br><b style="color:#00ff00">Alcista:</b> > 0% (Arriba de la EMA)<br><b style="color:#ff0044">Bajista:</b> < 0% (Abajo de la EMA)</div></div></span>
+                        <span class="val ${getTechColor(item.sma200, 'trend')}">${item.sma200 !== '-' ? (item.sma200 > 0 ? '+' : '') + item.sma200 + '%' : '-'}</span>
+                    </div>
 
-        <div class="detail-dashboard">
-            <div class="detail-panel">
-                <h3 style="color: #00f7ff;">Análisis Técnico</h3>
-                <div class="detail-panel-row"><span>RS Score</span><span class="val ${getTechColor(item.rsScore, 'score')}">${item.rsScore}</span></div>
-                <div class="detail-panel-row"><span>RSI 14</span><span class="val ${getTechColor(item.rsi, 'rsi')}">${item.rsi}</span></div>
-                <div class="detail-panel-row"><span>Dist. EMA 200</span><span class="val ${getTechColor(item.sma200, 'trend')}">${item.sma200 > 0 ? '+' : ''}${item.sma200}%</span></div>
+                    <div class="kpi-box">
+                        <span class="label">Dist. SMA 50 <div class="tooltip">?<div class="tooltiptext">Tendencia Trimestral (Mediano Plazo).<br><br><b style="color:#00ff00">Alcista:</b> > 0%<br><b style="color:#ff0044">Bajista:</b> < 0%</div></div></span>
+                        <span class="val ${getTechColor(item.sma50, 'trend')}">${item.sma50 !== '-' ? (item.sma50 > 0 ? '+' : '') + item.sma50 + '%' : '-'}</span>
+                    </div>
+
+                    <div class="kpi-box">
+                        <span class="label">Mínimo 52s <div class="tooltip">?<div class="tooltiptext">Distancia al piso del último año.<br><br><b style="color:#00ff00">Soporte Cerca:</b> Valores cercanos al 0% indican que podría rebotar.</div></div></span>
+                        <span class="val ${getTechColor(item.distLow52, 'distLow')}">${item.distLow52 !== '-' ? '+' + item.distLow52 + '%' : '-'}</span>
+                    </div>
+
+                    <div class="kpi-box">
+                        <span class="label">Máximo 52s <div class="tooltip">?<div class="tooltiptext">Distancia al techo del último año.<br><br><b style="color:#ff0044">Resistencia Cerca:</b> Valores cercanos al 0% indican riesgo de corrección.</div></div></span>
+                        <span class="val ${getTechColor(item.distHigh52, 'distHigh')}">${item.distHigh52 !== '-' ? item.distHigh52 + '%' : '-'}</span>
+                    </div>
+
+                </div>
             </div>
-            <div class="detail-panel">
-                <h3 style="color: #f59e0b;">Análisis Fundamental</h3>
-                <div class="detail-panel-row"><span>PER Actual</span><span class="val ${getFundColor(item.pe, 'pe')}">${item.pe}</span></div>
-                <div class="detail-panel-row"><span>BPA Actual</span><span class="val">u$s ${item.eps}</span></div>
-                <div class="detail-panel-row"><span>Precio / Libro</span><span class="val ${getFundColor(item.pb, 'pb')}">${item.pb}</span></div>
+
+            <div class="card complex-card">
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Análisis Fundamental</h3>
+                <div class="kpi-grid">
+                    
+                    <div class="kpi-box">
+                        <span class="label">PER Actual (P/E) <div class="tooltip">?<div class="tooltiptext">Años necesarios para recuperar la inversión.<br><br><b style="color:#00ff00">Barato:</b> < 15<br><b style="color:#ff0044">Caro/Burbuja:</b> > 25</div></div></span>
+                        <span class="val ${getFundColor(item.pe, 'pe')}">${item.pe || '-'}</span>
+                    </div>
+
+                    <div class="kpi-box">
+                        <span class="label">PER Estimado <div class="tooltip">?<div class="tooltiptext">Proyección de P/E futuro.<br><br><b style="color:#00ff00">Crecimiento:</b> Si es menor al PER actual, se esperan mayores ganancias.</div></div></span>
+                        <span class="val ${getFundColor(item.fpe, 'fpe')}">${item.fpe || '-'}</span>
+                    </div>
+
+                    <div class="kpi-box">
+                        <span class="label">BPA (EPS) <div class="tooltip">?<div class="tooltiptext">Beneficio Por Acción.<br><br><b style="color:#00ff00">Comprar:</b> Positivo (>0). Refleja empresa que genera ganancias.</div></div></span>
+                        <span class="val ${item.eps !== '-' ? (parseFloat(item.eps) > 0 ? 'positive' : 'negative') : 'neutral'}">${item.eps !== '-' ? 'u$s ' + item.eps : '-'}</span>
+                    </div>
+
+                    <div class="kpi-box">
+                        <span class="label">P/B Ratio <div class="tooltip">?<div class="tooltiptext">Precio sobre Valor Contable.<br><br><b style="color:#00ff00">Subvaluada:</b> < 1.5<br><b style="color:#ff0044">Sobrevaluada:</b> > 3.5</div></div></span>
+                        <span class="val ${getFundColor(item.pb, 'pb')}">${item.pb || '-'}</span>
+                    </div>
+
+                    <div class="kpi-box">
+                        <span class="label">Div. Yield <div class="tooltip">?<div class="tooltiptext">Rendimiento anual por dividendos.<br><br><b style="color:#00ff00">Atractivo:</b> > 3% anual. Ideal para ingresos pasivos.</div></div></span>
+                        <span class="val ${getFundColor(item.divYield, 'div')}">${item.divYield !== '-' ? item.divYield + '%' : '-'}</span>
+                    </div>
+
+                    <div class="kpi-box">
+                        <span class="label">Beta <div class="tooltip">?<div class="tooltiptext">Volatilidad comparada contra el mercado.<br><br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff00ff">Agresiva:</b> > 1.2</div></div></span>
+                        <span class="val ${getFundColor(item.beta, 'beta')}">${item.beta || '-'}</span>
+                    </div>
+
+                    <div class="kpi-box">
+                        <span class="label">Market Cap <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en la bolsa.<br><br><b>Large:</b> > $10 Billones (Menos riesgo).<br><b>Small:</b> < $2 Billones (Más volátil, más potencial).</div></div></span>
+                        <span class="val" style="color:#00f7ff;">${item.mcap || item.marketCap || '-'}</span>
+                    </div>
+
+                </div>
             </div>
+
         </div>
 
         <div id="tv_chart_${item.ticker.replace('.','_')}" style="height: 500px; width: 100%; margin-top: 30px; border-radius: 12px; overflow: hidden; border: 1px solid #1f2937;"></div>
     `;
 
-    // Inyectar el Widget luego de que el HTML exista
     setTimeout(() => {
         new TradingView.widget({
           "autosize": true,

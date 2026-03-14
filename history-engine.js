@@ -40,26 +40,38 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
         return rate ? parseFloat(rate.venta) : currentMepRate;
     }
 
+    // --- ROTADOR DE PROXIES ANTI-BLOQUEO CORS ---
     async function fetchYahoo(tickerSymbol) {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${tickerSymbol}?interval=1d&range=${range}&_=${Date.now()}`;
-        const proxyURL = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        try {
-            const res = await fetch(proxyURL);
-            if (!res.ok) return null;
-            const wrapper = await res.json();
-            const json = JSON.parse(wrapper.contents);
-            const timestamps = json.chart.result[0].timestamp;
-            const closePrices = json.chart.result[0].indicators.quote[0].close;
-            
-            let result = {};
-            for (let i = 0; i < timestamps.length; i++) {
-                if (closePrices[i] !== null) {
-                    const dateObj = new Date(timestamps[i] * 1000);
-                    result[dateObj.toISOString().split('T')[0]] = closePrices[i];
+        
+        const proxies = [
+            `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+        ];
+
+        for (let proxyURL of proxies) {
+            try {
+                const res = await fetch(proxyURL);
+                if (!res.ok) continue; // Si este proxy falló o te bloqueó, salta al siguiente
+                
+                const json = await res.json();
+                const timestamps = json.chart.result[0].timestamp;
+                const closePrices = json.chart.result[0].indicators.quote[0].close;
+                
+                let result = {};
+                for (let i = 0; i < timestamps.length; i++) {
+                    if (closePrices[i] !== null) {
+                        const dateObj = new Date(timestamps[i] * 1000);
+                        result[dateObj.toISOString().split('T')[0]] = closePrices[i];
+                    }
                 }
+                return Object.keys(result).length > 0 ? result : null;
+            } catch (e) {
+                // Error silencioso, probará el próximo enlace de la lista
             }
-            return Object.keys(result).length > 0 ? result : null;
-        } catch (e) { return null; }
+        }
+        return null; // Solo falla si los 3 proxies mundiales están caídos a la vez
     }
 
     const now = Date.now();
@@ -202,7 +214,6 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                         priceTodayARS = rawYahoo * scaleRatio;
                     }
                 } else {
-                    // Línea sintética (Clave para que los FCI se grafiquen perfectos sin Yahoo)
                     let startD = new Date(`${firstBuyDate[t]}T12:00:00`);
                     let daysTotal = (chartEndDate - startD) / 86400000 || 1;
                     let daysElapsed = (d - startD) / 86400000;
