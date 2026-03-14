@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Skyline - Portfolio Tracker</title>
+    <link rel="stylesheet" href="./style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="header-top">
+            <h1 class="title">Skyline</h1>
+            <div class="currency-toggle">
+                <span id="labelARS" class="active-currency">ARS</span>
+                <label class="switch">
+                    <input type="checkbox" id="currencySwitch">
+                    <span class="slider round"></span>
+                </label>
+                <span id="labelUSD">USD</span>
+                <small id="mepRateText">(Cargando MEP...)</small>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="tab-btn active" data-target="globalView">Mi Cartera</button>
+            <button class="tab-btn" data-target="portfolioView">Cartera Bursátil</button>
+            <button class="tab-btn" data-target="fciPortfolioView">Cartera FCI</button>
+            <button class="tab-btn" data-target="transactionsView">Transacciones</button>
+            <button class="tab-btn" data-target="marketView">Mercado</button>
+            <button class="tab-btn" data-target="fciView">FCI en Vivo</button>
+            <button class="tab-btn" data-target="usaScannerView">Scanner</button>
+        </div>
+
+        <div id="globalView" class="view-section active">
+            <div class="dashboard-cards" style="margin-bottom: 40px;">
+                <div class="card complex-card card-activa" style="background: linear-gradient(145deg, #111827, #0b0f1a); border: 1px solid rgba(0, 247, 255, 0.3);">
+                    <h3>Patrimonio Activo</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido:</span> <span id="globalActiveInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Actual:</span> <span id="globalActiveCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance:</span> <span id="globalActivePNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+                <div class="card complex-card card-cerrada" style="background: linear-gradient(145deg, #111827, #0b0f1a); border: 1px solid rgba(255, 0, 255, 0.3);">
+                    <h3>Patrimonio Cerrado</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido:</span> <span id="globalClosedInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Recuperado:</span> <span id="globalClosedCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance:</span> <span id="globalClosedPNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+                <div class="card complex-card card-total" style="background: linear-gradient(145deg, #111827, #0b0f1a); border: 1px solid rgba(245, 158, 11, 0.3);">
+                    <h3>Resultado Histórico Total</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido Total:</span> <span id="globalTotalInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Monto Total:</span> <span id="globalTotalCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance Total:</span> <span id="globalTotalPNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <h3>Mis Tenencias (Globales)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Activo</th>
+                            <th>Cant.</th>
+                            <th>PPC (Orig.)</th>
+                            <th>Precio Act. (Orig.)</th>
+                            <th>Valor Actual</th>
+                            <th>P/L ($)</th>
+                            <th>P/L (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="globalPortfolioResults"></tbody>
+                </table>
+            </div>
+
+            <div class="charts-section">
+                <div class="chart-box full-width">
+                    <div class="chart-header-flex">
+                        <h3>Evolución de Rentabilidad Global</h3>
+                        <div class="chart-controls">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="globalToggleNominal" checked>
+                                <span class="checkmark btn-nominal">Nominal ($)</span>
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="globalTogglePct" checked>
+                                <span class="checkmark btn-pct">Porcentual (%)</span>
+                            </label>
+                            <select id="globalChartAssetFilter" class="chart-select">
+                                <option value="ALL">Total Cartera</option>
+                            </select>
+                        </div>
+                    </div>
+                    <canvas id="globalLineChart"></canvas>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-box">
+                        <h3>Composición Global</h3>
+                        <canvas id="globalPieChart"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Rendimiento General (%)</h3>
+                        <canvas id="globalBarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="portfolioView" class="view-section">
+            <div class="dashboard-cards">
+                <div class="card complex-card card-activa">
+                    <h3>Bolsa Activa</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido:</span> <span id="activeInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Actual:</span> <span id="activeCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance:</span> <span id="activePNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+                <div class="card complex-card card-cerrada">
+                    <h3>Bolsa Cerrada</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido:</span> <span id="closedInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Recuperado:</span> <span id="closedCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance:</span> <span id="closedPNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+                <div class="card complex-card card-total">
+                    <h3>Resultado Bolsa</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido Total:</span> <span id="totalInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Monto Total:</span> <span id="totalCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance Total:</span> <span id="totalPNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <h3>Mis Tenencias Bursátiles</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Cant.</th>
+                            <th>PPC</th>
+                            <th>Precio Actual</th>
+                            <th>Valor Actual</th>
+                            <th>P/L ($)</th>
+                            <th>P/L (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="portfolioResults"></tbody>
+                </table>
+            </div>
+
+            <div class="charts-section">
+                <div class="chart-box full-width">
+                    <div class="chart-header-flex">
+                        <h3>Evolución Bursátil</h3>
+                        <div class="chart-controls">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="toggleNominal" checked>
+                                <span class="checkmark btn-nominal">Nominal ($)</span>
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="togglePct" checked>
+                                <span class="checkmark btn-pct">Porcentual (%)</span>
+                            </label>
+                            <select id="chartAssetFilter" class="chart-select">
+                                <option value="ALL">Total Cartera</option>
+                            </select>
+                        </div>
+                    </div>
+                    <canvas id="lineChart"></canvas>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-box">
+                        <h3>Composición Bursátil</h3>
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Rendimiento Bursátil (%)</h3>
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="fciPortfolioView" class="view-section">
+            <div class="table-header" style="margin-bottom: 20px;">
+                <h3 style="color: #fff;">📊 Fondos Comunes de Inversión</h3>
+                <button id="btnOpenFciTxModal" class="btn-submit">➕ Nueva Transacción FCI</button>
+            </div>
+
+            <div class="dashboard-cards">
+                <div class="card complex-card card-activa">
+                    <h3>FCI Activos</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido:</span> <span id="fciActiveInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Actual:</span> <span id="fciActiveCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance:</span> <span id="fciActivePNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+                <div class="card complex-card card-cerrada">
+                    <h3>FCI Cerrados</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido:</span> <span id="fciClosedInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Recuperado:</span> <span id="fciClosedCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance:</span> <span id="fciClosedPNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+                <div class="card complex-card card-total">
+                    <h3>Resultado FCI Total</h3>
+                    <div class="card-details">
+                        <div class="detail-row"><span>Invertido Total:</span> <span id="fciTotalInvested">$0,00</span></div>
+                        <div class="detail-row"><span>Monto Total:</span> <span id="fciTotalCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Balance Total:</span> <span id="fciTotalPNL" class="neutral">$0,00 (0,00%)</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <h3>Mis Tenencias FCI</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fondo</th>
+                            <th>Moneda</th>
+                            <th>Cuotapartes</th>
+                            <th>PPC</th>
+                            <th>Precio Actual</th>
+                            <th>Valor Actual</th>
+                            <th>P/L ($)</th>
+                            <th>P/L (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fciPortfolioResults"></tbody>
+                </table>
+            </div>
+
+            <div class="table-container">
+                <h3>Historial de Movimientos FCI</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Fondo</th>
+                            <th>Operación</th>
+                            <th>Moneda</th>
+                            <th>Cuotapartes</th>
+                            <th>Precio</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fciHistoryResults"></tbody>
+                </table>
+            </div>
+
+            <div id="fciTxModal" class="modal-overlay">
+                <div class="modal-content">
+                    <span id="closeFciTxModal" class="close-modal">&times;</span>
+                    <h3 style="margin-bottom:20px; color:#00f7ff; text-align:center;">Operación de FCI</h3>
+                    <form id="fciTransactionForm" autocomplete="off">
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="fciTxTicker" placeholder="Buscar Fondo..." required>
+                            <ul id="fciTickerSuggestions" class="suggestions-list"></ul>
+                        </div>
+                        <select id="fciTxType">
+                            <option value="buy">Suscripción (Compra)</option>
+                            <option value="sell">Rescate (Venta)</option>
+                        </select>
+                        <select id="fciTxCurrency">
+                            <option value="ARS">Operado en PESOS (ARS)</option>
+                            <option value="USD">Operado en DÓLARES (USD)</option>
+                        </select>
+                        <input type="number" id="fciTxQty" placeholder="Cant. de Cuotapartes (ej: 5000)" step="0.01" required>
+                        <input type="number" id="fciTxPrice" placeholder="Precio cada 1000 cuotapartes" step="0.000001" required>
+                        <input type="date" id="fciTxDate" required>
+                        <div class="form-actions" style="margin-top:10px;">
+                            <button type="submit" class="btn-submit" style="width:100%;">Guardar FCI</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="transactionsView" class="view-section">
+            <div class="table-header" style="margin-bottom: 20px;">
+                <h3>Gestión Bursátil</h3>
+                <button id="btnOpenTxModal" class="btn-submit">➕ Nueva Transacción</button>
+            </div>
+
+            <div id="txModal" class="modal-overlay">
+                <div class="modal-content">
+                    <span id="closeTxModal" class="close-modal">&times;</span>
+                    <h3 id="formTitle" style="margin-bottom:20px; color:#00f7ff; text-align:center;">Agregar Transacción</h3>
+                    <form id="transactionForm" autocomplete="off">
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="txTicker" placeholder="Ticker (ej: AAPL)" required>
+                            <ul id="tickerSuggestions" class="suggestions-list"></ul>
+                        </div>
+                        <select id="txType">
+                            <option value="buy">Compra</option>
+                            <option value="sell">Venta</option>
+                        </select>
+                        <input type="number" id="txQty" placeholder="Cantidad (Enteros)" step="1" required>
+                        <input type="number" id="txPrice" placeholder="Precio Unitario ($)" step="0.01" required>
+                        <input type="number" id="txComision" placeholder="Comisión y gastos ($)" step="0.01">
+                        <input type="date" id="txDate" required>
+                        <div class="form-actions" style="display:flex; gap:10px; margin-top:10px;">
+                            <button type="submit" class="btn-submit" id="btnSubmitTx" style="flex:1;">Guardar</button>
+                            <button type="button" class="btn-cancel" id="btnCancelEdit" style="display:none; flex:1;">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>Historial de Operaciones</h3>
+                    <div class="import-export-btns">
+                        <button id="btnExport" class="btn-action">⬇ Exportar CSV</button>
+                        <button id="btnImport" class="btn-action">⬆ Importar CSV</button>
+                        <input type="file" id="fileImport" accept=".csv" style="display: none;">
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Ticker</th>
+                            <th>Tipo</th>
+                            <th>Cant.</th>
+                            <th>Precio</th>
+                            <th>Comisión</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyResults"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="marketView" class="view-section">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Buscar ticker..." autocomplete="off">
+            </div>
+            <div class="categories">
+                <button class="category active" data-category="all">Todos</button>
+                <button class="category" data-category="acciones">Acciones</button>
+                <button class="category" data-category="cedears">Cedears</button>
+                <button class="category" data-category="letras">Letras</button>
+                <button class="category" data-category="bonos">Bonos</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Precio</th>
+                            <th>Variación</th>
+                            <th>Volumen</th>
+                            <th>Bid</th>
+                            <th>Ask</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="fciView" class="view-section">
+            <div class="search-container" style="margin-bottom: 20px;">
+                <input type="text" id="searchFciInput" placeholder="Buscar ticker de fondo..." autocomplete="off">
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre del Fondo</th>
+                            <th>Valor Cuotaparte ($)</th>
+                            <th>Categoría / Fecha de Cotización</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fciResults">
+                        <tr><td colspan='3'>Cargando fondos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="usaScannerView" class="view-section">
+            <div id="scannerListView">
+                <div class="scanner-controls">
+                    <div class="search-container" style="flex: 1; margin-bottom: 0;">
+                        <input type="text" id="searchScannerInput" placeholder="Buscar activo y tocar Enter..." autocomplete="off">
+                    </div>
+                    <button id="toggleScannerViewBtn" class="btn-action" style="height: 48px;">Ver Fundamental</button>
+                </div>
+                <div id="scannerTableContainer" class="table-container">
+                    <h3>Análisis Técnico</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Precio USD</th>
+                                <th>RS Score</th>
+                                <th>Ratio Vol</th>
+                                <th>Dist. Mín. 52s</th>
+                                <th>Dist. Máx. 52s</th>
+                                <th>RSI 14</th>
+                                <th>Dist. EMA 200</th>
+                                <th>Dist. SMA 50</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scannerTableResults"></tbody>
+                    </table>
+                </div>
+                <div id="scannerGridContainer" class="kpi-grid-container" style="display: none;">
+                    <h3 style="color: #00f7ff; margin-bottom: 20px;">Análisis Fundamental</h3>
+                    <div id="scannerGridResults" class="kpi-grid"></div>
+                </div>
+            </div>
+            <div id="scannerDetailView" style="display: none;">
+                <button id="btnBackToScanner" class="btn-action" style="margin-bottom: 20px;">⬅ Volver al listado</button>
+                <div id="scannerDetailContent"></div>
+            </div>
+        </div>
+
+    </div>
+    <script type="module" src="./app.js"></script>
+    <script type="module" src="./fci.js"></script>
+    <script type="module" src="./scanner.js"></script>
+</body>
+</html>
