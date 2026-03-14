@@ -210,3 +210,21 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     border-color: #00f7ff;
     box-shadow: 0 0 8px rgba(0, 247, 255, 0.3);
 }
+
+/* --- ESTILOS DEL FORMULARIO FCI --- */
+#fciTransactionForm input, #fciTransactionForm select {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    border: 1px solid #1f2937;
+    background: #111827;
+    color: #fff;
+    font-size: 16px;
+    outline: none;
+    transition: 0.3s;
+}
+#fciTransactionForm input:focus, #fciTransactionForm select:focus {
+    border-color: #00f7ff;
+    box-shadow: 0 0 8px rgba(0, 247, 255, 0.3);
+}

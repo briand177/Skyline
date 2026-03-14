@@ -3,6 +3,7 @@ import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, renderGlobalP
 let fciData = [];
 let hasLoadedFci = false;
 let fciTransactions = JSON.parse(localStorage.getItem('skyline_fci_txs')) || [];
+let editingFciId = null; // Variable para saber si estamos editando
 
 export async function initFCI() {
     if (hasLoadedFci) return; 
@@ -88,11 +89,14 @@ const fciModal = document.getElementById("fciTxModal");
 document.getElementById("btnOpenFciTxModal").addEventListener("click", () => {
     fciModal.classList.add("active"); 
     document.body.style.overflow = "hidden";
-    const today = new Date();
-    document.getElementById("fciTxDate").value = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    if (!editingFciId) {
+        const today = new Date();
+        document.getElementById("fciTxDate").value = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    }
 });
 
 document.getElementById("closeFciTxModal").addEventListener("click", closeFciModal);
+document.getElementById("btnCancelFciEdit").addEventListener("click", closeFciModal);
 window.addEventListener("click", (e) => { if (e.target === fciModal) closeFciModal(); });
 
 function closeFciModal() {
@@ -100,6 +104,10 @@ function closeFciModal() {
     document.body.style.overflow = "auto";
     document.getElementById("fciTransactionForm").reset();
     document.getElementById("fciTickerSuggestions").style.display = "none";
+    editingFciId = null;
+    document.getElementById("fciFormTitle").innerText = "Operación de FCI";
+    document.getElementById("btnSubmitFciTx").innerText = "Guardar FCI";
+    document.getElementById("btnCancelFciEdit").style.display = "none";
 }
 
 const fciTickerInput = document.getElementById("fciTxTicker");
@@ -127,7 +135,7 @@ fciTickerInput.addEventListener("input", () => {
 document.getElementById("fciTransactionForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const newTx = {
-        id: Date.now(),
+        id: editingFciId ? editingFciId : Date.now(),
         ticker: document.getElementById("fciTxTicker").value.trim(),
         type: document.getElementById("fciTxType").value,
         currency: document.getElementById("fciTxCurrency").value, 
@@ -136,7 +144,13 @@ document.getElementById("fciTransactionForm").addEventListener("submit", (e) => 
         date: document.getElementById("fciTxDate").value
     };
     
-    fciTransactions.push(newTx);
+    if (editingFciId) {
+        const idx = fciTransactions.findIndex(t => t.id === editingFciId);
+        if (idx !== -1) fciTransactions[idx] = newTx;
+    } else {
+        fciTransactions.push(newTx);
+    }
+    
     localStorage.setItem('skyline_fci_txs', JSON.stringify(fciTransactions));
     closeFciModal();
     renderFciHistory();
@@ -211,8 +225,6 @@ export function renderFciPortfolio() {
         const displayBuyPrice = h.invNative / (h.qty / 1000);
         const nativeSym = h.isUSD ? "u$s " : "$ ";
 
-        // Empaquetado NATIVO y EXACTO para la vista Global 
-        // (nativePrice viaja como cuotaparte unitaria limpia)
         fciHoldingsArr.push({
             ticker: t, tag: "FCI", qtyStr: formatMonto(h.qty),
             nativeSym: nativeSym, 
@@ -266,12 +278,52 @@ export function renderFciPortfolio() {
 export function renderFciHistory() {
     document.getElementById("fciHistoryResults").innerHTML = fciTransactions.map(tx => {
         const nativeSym = tx.currency === 'USD' ? "u$s " : "$ ";
-        return `<tr><td>${tx.date}</td><td><strong>${tx.ticker}</strong></td><td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Suscripción':'Rescate'}</td><td>${tx.currency}</td><td>${formatMonto(tx.qty)}</td><td>${nativeSym}${formatMonto(tx.price)}</td><td><button class="btn-delete" style="padding: 4px 8px;" onclick="eliminarFciTx(${tx.id})">X</button></td></tr>`;
+        return `<tr>
+            <td>${tx.date}</td>
+            <td><strong>${tx.ticker}</strong></td>
+            <td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Suscripción':'Rescate'}</td>
+            <td>${tx.currency}</td>
+            <td>${formatMonto(tx.qty)}</td>
+            <td>${nativeSym}${formatMonto(tx.price)}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn-edit" data-id="${tx.id}" onclick="editarFciTx(${tx.id})">Editar</button>
+                    <button class="btn-delete" data-id="${tx.id}" onclick="eliminarFciTx(${tx.id})">X</button>
+                </div>
+            </td>
+        </tr>`;
     }).join("");
 }
 
+// Nueva Función: Editar Transacción FCI
+window.editarFciTx = function(id) {
+    const tx = fciTransactions.find(t => t.id === id);
+    if(tx) {
+        editingFciId = tx.id;
+        document.getElementById("fciTxTicker").value = tx.ticker;
+        document.getElementById("fciTxType").value = tx.type;
+        document.getElementById("fciTxCurrency").value = tx.currency || "ARS";
+        document.getElementById("fciTxQty").value = tx.qty;
+        document.getElementById("fciTxPrice").value = tx.price;
+        document.getElementById("fciTxDate").value = tx.date;
+        
+        document.getElementById("fciFormTitle").innerText = "Editando Operación FCI";
+        document.getElementById("btnSubmitFciTx").innerText = "Actualizar";
+        document.getElementById("btnCancelFciEdit").style.display = "block";
+        
+        const fciModal = document.getElementById("fciTxModal");
+        fciModal.classList.add("active"); 
+        document.body.style.overflow = "hidden";
+    }
+}
+
 window.eliminarFciTx = function(id) {
-    if(confirm("¿Eliminar operación de FCI?")) { fciTransactions = fciTransactions.filter(t => t.id !== id); localStorage.setItem('skyline_fci_txs', JSON.stringify(fciTransactions)); renderFciHistory(); renderFciPortfolio(); }
+    if(confirm("¿Eliminar operación de FCI?")) { 
+        fciTransactions = fciTransactions.filter(t => t.id !== id); 
+        localStorage.setItem('skyline_fci_txs', JSON.stringify(fciTransactions)); 
+        renderFciHistory(); 
+        renderFciPortfolio(); 
+    }
 }
 
 document.addEventListener("DOMContentLoaded", () => { renderFciHistory(); renderFciPortfolio(); });

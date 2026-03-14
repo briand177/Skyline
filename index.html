@@ -266,7 +266,7 @@
             <div id="fciTxModal" class="modal-overlay">
                 <div class="modal-content">
                     <span id="closeFciTxModal" class="close-modal">&times;</span>
-                    <h3 style="margin-bottom:20px; color:#00f7ff; text-align:center;">Operación de FCI</h3>
+                    <h3 id="fciFormTitle" style="margin-bottom:20px; color:#00f7ff; text-align:center;">Operación de FCI</h3>
                     <form id="fciTransactionForm" autocomplete="off">
                         <div class="autocomplete-wrapper">
                             <input type="text" id="fciTxTicker" placeholder="Buscar Fondo..." required>
@@ -283,8 +283,9 @@
                         <input type="number" id="fciTxQty" placeholder="Cant. de Cuotapartes (ej: 5000)" step="0.01" required>
                         <input type="number" id="fciTxPrice" placeholder="Precio cada 1000 cuotapartes" step="0.000001" required>
                         <input type="date" id="fciTxDate" required>
-                        <div class="form-actions" style="margin-top:10px;">
-                            <button type="submit" class="btn-submit" style="width:100%;">Guardar FCI</button>
+                        <div class="form-actions" style="display:flex; gap:10px; margin-top:10px;">
+                            <button type="submit" class="btn-submit" id="btnSubmitFciTx" style="flex:1;">Guardar FCI</button>
+                            <button type="button" class="btn-cancel" id="btnCancelFciEdit" style="display:none; flex:1;">Cancelar</button>
                         </div>
                     </form>
                 </div>
