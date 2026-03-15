@@ -16,7 +16,7 @@ export async function initFCI() {
         searchInput.dataset.connected = "true";
     }
 
-        fciResults.innerHTML = "<tr><td colspan='3'>Cargando listado de FCI...</td></tr>";
+    fciResults.innerHTML = "<tr><td colspan='3'>Cargando listado de FCI...</td></tr>";
 
     try {
         const tipos = ['mercadoDinero', 'rentaVariable', 'rentaFija', 'rentaMixta'];
@@ -145,7 +145,7 @@ document.getElementById("fciTransactionForm").addEventListener("submit", (e) => 
     };
     
     if (editingFciId) {
-        const idx = fciTransactions.findIndex(t => t.id === editingFciId);
+        const idx = fciTransactions.findIndex(t => String(t.id) === String(editingFciId));
         if (idx !== -1) fciTransactions[idx] = newTx;
     } else {
         fciTransactions.push(newTx);
@@ -287,16 +287,17 @@ export function renderFciHistory() {
             <td>${nativeSym}${formatMonto(tx.price)}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn-edit" data-id="${tx.id}" onclick="editarFciTx(${tx.id})">Editar</button>
-                    <button class="btn-delete" data-id="${tx.id}" onclick="eliminarFciTx(${tx.id})">X</button>
+                    <button class="btn-edit" data-id="${tx.id}" onclick="editarFciTx('${tx.id}')">Editar</button>
+                    <button class="btn-delete" data-id="${tx.id}" onclick="eliminarFciTx('${tx.id}')">X</button>
                 </div>
             </td>
         </tr>`;
     }).join("");
 }
 
+// BOTÓN EDITAR SOLUCIONADO (Usa String estricto)
 window.editarFciTx = function(id) {
-    const tx = fciTransactions.find(t => t.id === id);
+    const tx = fciTransactions.find(t => String(t.id) === String(id));
     if(tx) {
         editingFciId = tx.id;
         document.getElementById("fciTxTicker").value = tx.ticker;
@@ -316,18 +317,16 @@ window.editarFciTx = function(id) {
     }
 }
 
+// BOTÓN ELIMINAR SOLUCIONADO (Usa String estricto)
 window.eliminarFciTx = function(id) {
     if(confirm("¿Eliminar operación de FCI?")) { 
-        fciTransactions = fciTransactions.filter(t => t.id !== id); 
+        fciTransactions = fciTransactions.filter(t => String(t.id) !== String(id)); 
         localStorage.setItem('skyline_fci_txs', JSON.stringify(fciTransactions)); 
         renderFciHistory(); 
         renderFciPortfolio(); 
     }
 }
 
-// ==========================================
-// IMPORTAR / EXPORTAR CSV DE FCI
-// ==========================================
 const btnExportFci = document.getElementById("btnExportFci");
 if(btnExportFci) {
     btnExportFci.addEventListener("click", () => {
@@ -401,7 +400,8 @@ if(fileImportFci) {
             } else alert("Revisá el formato del archivo CSV.");
             fileImportFci.value = ""; 
         }; 
-        reader.readAsText(file);
+        // LECTURA EN FORMATO WINDOWS-1252 PARA NO ROMPER LOS ACENTOS ("Ó")
+        reader.readAsText(file, 'windows-1252'); 
     });
 }
 

@@ -408,4 +408,7 @@ fileImport.addEventListener("change", (e) => {
     }; reader.readAsText(file);
 });
 
-setTodayDate(); loadData("all"); setInterval(() => loadData(currentCategory), 30000);
+setTodayDate(); 
+loadData("all"); 
+initFCI(); // <--- ESTA ES LA LÍNEA MÁGICA QUE FALTA
+setInterval(() => loadData(currentCategory), 30000);
