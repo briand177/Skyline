@@ -1,4 +1,4 @@
-import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, renderGlobalPortfolio, matchSearch } from "./app.js";
+import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, renderGlobalPortfolio, matchSearch, obfuscate } from "./app.js";
 
 let fciData = [];
 let hasLoadedFci = false;
@@ -63,7 +63,6 @@ function renderFciTable() {
     const searchTerm = searchInput ? searchInput.value.trim() : "";
     let filtered = fciData;
     if (searchTerm !== "") {
-        // Usa el buscador mágico importado de app.js
         filtered = fciData.filter(item => matchSearch(`${item.symbol} ${item.tipo}`, searchTerm));
     }
     
@@ -81,7 +80,6 @@ function renderFciTable() {
     }).join("") || "<tr><td colspan='3'>Sin resultados.</td></tr>";
 }
 
-// Conectar barra de mercado en vivo
 document.getElementById("searchFciInput")?.addEventListener("input", renderFciTable);
 
 const fciModal = document.getElementById("fciTxModal");
@@ -116,7 +114,6 @@ fciTickerInput.addEventListener("input", () => {
     fciTickerSuggestions.innerHTML = "";
     if (!val || fciData.length === 0) { fciTickerSuggestions.style.display = "none"; return; }
     
-    // Filtra sin tildes también en el autocompletado del formulario
     const matches = fciData.filter(t => matchSearch(t.symbol, val)).slice(0, 10);
     if (matches.length > 0) {
         fciTickerSuggestions.style.display = "block";
@@ -234,7 +231,6 @@ export function renderFciPortfolio() {
         });
     }
 
-    // Filtrar la tabla de FCI
     const filterText = document.getElementById("searchFciPortfolio")?.value || "";
     const filteredFci = fciHoldingsArr.filter(h => matchSearch(h.ticker, filterText));
 
@@ -242,12 +238,12 @@ export function renderFciPortfolio() {
         <tr>
             <td><strong>${h.ticker}</strong></td>
             <td><span style="font-size:12px; color:#9ca3af; padding:2px 6px; border:1px solid #374151; border-radius:4px;">${h.nativeSym === 'u$s ' ? 'USD' : 'ARS'}</span></td>
-            <td>${h.qtyStr}</td>
-            <td>${h.nativeSym}${formatMonto(h.nativePPC)}</td>
+            <td>${obfuscate(h.qtyStr)}</td>
+            <td>${obfuscate(h.nativeSym + formatMonto(h.nativePPC))}</td>
             <td>${h.nativeSym}${formatMonto(h.nativePrice)}</td>
-            <td>${sym}${formatMonto(isUSD ? h.currentUSD : h.currentARS)}</td>
-            <td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${sym}${formatMonto(isUSD ? h.pnlUSD : h.pnlARS)}</td>
-            <td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${h.pnlPct.toFixed(2)}%</td>
+            <td>${obfuscate(sym + formatMonto(isUSD ? h.currentUSD : h.currentARS))}</td>
+            <td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(isUSD ? h.pnlUSD : h.pnlARS))}</td>
+            <td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>
         </tr>
     `).join("");
 
@@ -256,25 +252,25 @@ export function renderFciPortfolio() {
     const dActInv = isUSD ? actInvUSD : actInvARS;
     const dActCur = isUSD ? actCurUSD : actCurARS;
     const dActPnl = dActCur - dActInv;
-    document.getElementById("fciActiveInvested").innerText = sym + formatMonto(dActInv);
-    document.getElementById("fciActiveCurrent").innerText = sym + formatMonto(dActCur);
-    document.getElementById("fciActivePNL").innerText = `${sym}${formatMonto(dActPnl)} (${(dActInv > 0 ? (dActPnl / dActInv * 100) : 0).toFixed(2)}%)`;
+    document.getElementById("fciActiveInvested").innerText = obfuscate(sym + formatMonto(dActInv));
+    document.getElementById("fciActiveCurrent").innerText = obfuscate(sym + formatMonto(dActCur));
+    document.getElementById("fciActivePNL").innerText = obfuscate(`${sym}${formatMonto(dActPnl)} (${(dActInv > 0 ? (dActPnl / dActInv * 100) : 0).toFixed(2)}%)`);
     document.getElementById("fciActivePNL").className = dActPnl >= 0 ? "positive" : "negative";
 
     const dClsInv = isUSD ? clsInvUSD : clsInvARS;
     const dClsCur = isUSD ? clsProUSD : clsProARS;
     const dClsPnl = dClsCur - dClsInv;
-    document.getElementById("fciClosedInvested").innerText = sym + formatMonto(dClsInv);
-    document.getElementById("fciClosedCurrent").innerText = sym + formatMonto(dClsCur);
-    document.getElementById("fciClosedPNL").innerText = `${sym}${formatMonto(dClsPnl)} (${(dClsInv > 0 ? (dClsPnl / dClsInv * 100) : 0).toFixed(2)}%)`;
+    document.getElementById("fciClosedInvested").innerText = obfuscate(sym + formatMonto(dClsInv));
+    document.getElementById("fciClosedCurrent").innerText = obfuscate(sym + formatMonto(dClsCur));
+    document.getElementById("fciClosedPNL").innerText = obfuscate(`${sym}${formatMonto(dClsPnl)} (${(dClsInv > 0 ? (dClsPnl / dClsInv * 100) : 0).toFixed(2)}%)`);
     document.getElementById("fciClosedPNL").className = dClsPnl >= 0 ? "positive" : "negative";
 
     const dTotInv = dActInv + dClsInv;
     const dTotCur = dActCur + dClsCur;
     const dTotPnl = dTotCur - dTotInv;
-    document.getElementById("fciTotalInvested").innerText = sym + formatMonto(dTotInv);
-    document.getElementById("fciTotalCurrent").innerText = sym + formatMonto(dTotCur);
-    document.getElementById("fciTotalPNL").innerText = `${sym}${formatMonto(dTotPnl)} (${(dTotInv > 0 ? (dTotPnl / dTotInv * 100) : 0).toFixed(2)}%)`;
+    document.getElementById("fciTotalInvested").innerText = obfuscate(sym + formatMonto(dTotInv));
+    document.getElementById("fciTotalCurrent").innerText = obfuscate(sym + formatMonto(dTotCur));
+    document.getElementById("fciTotalPNL").innerText = obfuscate(`${sym}${formatMonto(dTotPnl)} (${(dTotInv > 0 ? (dTotPnl / dTotInv * 100) : 0).toFixed(2)}%)`);
     document.getElementById("fciTotalPNL").className = dTotPnl >= 0 ? "positive" : "negative";
 
     renderGlobalPortfolio({ actInvARS, actInvUSD, actCurARS, actCurUSD, clsInvARS, clsInvUSD, clsProARS, clsProUSD }, fciHoldingsArr, fciTransactions);
@@ -282,7 +278,6 @@ export function renderFciPortfolio() {
 
 export function renderFciHistory() {
     const filterText = document.getElementById("searchFciHistory")?.value || "";
-    // El buscador revisa Ticker, Tipo de Op, Moneda
     const filteredTxs = fciTransactions.filter(tx => matchSearch(`${tx.ticker} ${tx.type === 'buy' ? 'Suscripción' : 'Rescate'} ${tx.currency}`, filterText));
 
     document.getElementById("fciHistoryResults").innerHTML = filteredTxs.map(tx => {
@@ -292,8 +287,8 @@ export function renderFciHistory() {
             <td><strong>${tx.ticker}</strong></td>
             <td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Suscripción':'Rescate'}</td>
             <td>${tx.currency}</td>
-            <td>${formatMonto(tx.qty)}</td>
-            <td>${nativeSym}${formatMonto(tx.price)}</td>
+            <td>${obfuscate(formatMonto(tx.qty))}</td>
+            <td>${obfuscate(nativeSym + formatMonto(tx.price))}</td>
             <td>
                 <div class="action-buttons">
                     <button class="btn-edit" data-id="${tx.id}" onclick="editarFciTx('${tx.id}')">Editar</button>
@@ -304,7 +299,6 @@ export function renderFciHistory() {
     }).join("") || "<tr><td colspan='7'>Sin operaciones</td></tr>";
 }
 
-// Conectar listeners
 document.getElementById("searchFciPortfolio")?.addEventListener("input", renderFciPortfolio);
 document.getElementById("searchFciHistory")?.addEventListener("input", renderFciHistory);
 

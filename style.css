@@ -256,3 +256,29 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     flex-wrap: wrap;
     gap: 15px;
 }
+
+/* --- MODO PRIVACIDAD --- */
+.btn-privacy {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 30px;
+    color: #fff;
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-privacy:hover {
+    border-color: #00f7ff;
+    box-shadow: 0 0 5px rgba(0, 247, 255, 0.3);
+}
+
+/* Cuando se activa el modo privacidad, los gráficos se difuminan */
+body.privacy-mode canvas {
+    filter: blur(8px);
+    pointer-events: none;
+    opacity: 0.8;
+}

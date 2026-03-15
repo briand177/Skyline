@@ -14,15 +14,21 @@
         
         <div class="header-top">
             <h1 class="title">Skyline</h1>
-            <div class="currency-toggle">
-                <span id="labelARS" class="active-currency">ARS</span>
-                <label class="switch">
-                    <input type="checkbox" id="currencySwitch">
-                    <span class="slider round"></span>
-                </label>
-                <span id="labelUSD">USD</span>
-                <small id="mepRateText">(Cargando MEP...)</small>
+            
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <button id="privacyToggleBtn" class="btn-privacy" title="Ocultar saldos">👁️</button>
+                
+                <div class="currency-toggle">
+                    <span id="labelARS" class="active-currency">ARS</span>
+                    <label class="switch">
+                        <input type="checkbox" id="currencySwitch">
+                        <span class="slider round"></span>
+                    </label>
+                    <span id="labelUSD">USD</span>
+                    <small id="mepRateText">(Cargando MEP...)</small>
+                </div>
             </div>
+            
         </div>
 
         <div class="nav-tabs">

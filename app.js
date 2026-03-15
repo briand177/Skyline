@@ -33,7 +33,26 @@ export function getHistoricalMepRate(dateStr) {
     return rate ? parseFloat(rate.venta) : currentMepRate;
 }
 
-// MOTOR DE BÚSQUEDA INTELIGENTE (Sin tildes y multi-palabra)
+// --- MODO PRIVACIDAD ---
+export let isPrivacyMode = false;
+export function obfuscate(text) { return isPrivacyMode ? "****" : text; }
+
+const privacyToggleBtn = document.getElementById("privacyToggleBtn");
+if (privacyToggleBtn) {
+    privacyToggleBtn.addEventListener("click", () => {
+        isPrivacyMode = !isPrivacyMode;
+        privacyToggleBtn.innerText = isPrivacyMode ? "🙈" : "👁️";
+        if (isPrivacyMode) document.body.classList.add("privacy-mode");
+        else document.body.classList.remove("privacy-mode");
+        
+        // Refrescar vistas para aplicar ocultamiento
+        renderPortfolio();
+        renderHistory();
+        renderFciPortfolio();
+        renderFciHistory();
+    });
+}
+
 export function matchSearch(text, searchStr) {
     if (!searchStr) return true;
     const normalize = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -46,12 +65,8 @@ export let lastFciTotals = { actInvARS: 0, actInvUSD: 0, actCurARS: 0, actCurUSD
 export let lastFciHoldings = [];
 export let lastFciTxs = [];
 
-let globalPieChartInstance = null;
-let globalBarChartInstance = null;
-let globalLineChartInstance = null;
-let pieChartInstance = null;
-let barChartInstance = null;
-let lineChartInstance = null;
+let globalPieChartInstance = null; let globalBarChartInstance = null; let globalLineChartInstance = null;
+let pieChartInstance = null; let barChartInstance = null; let lineChartInstance = null;
 Chart.defaults.color = '#9ca3af'; 
 
 export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null, fciTxs = null) {
@@ -59,56 +74,51 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     if(fciHoldings) lastFciHoldings = fciHoldings;
     if(fciTxs) lastFciTxs = fciTxs;
 
-    const fci = lastFciTotals;
-    const b = bolsaTotals;
-    const sym = isUSD ? "u$s " : "$ ";
+    const fci = lastFciTotals; const b = bolsaTotals; const sym = isUSD ? "u$s " : "$ ";
 
     const actInv = isUSD ? (b.actInvUSD + fci.actInvUSD) : (b.actInvARS + fci.actInvARS);
     const actCur = isUSD ? (b.actCurUSD + fci.actCurUSD) : (b.actCurARS + fci.actCurARS);
-    const actPnl = actCur - actInv;
-    const actPct = actInv > 0 ? (actPnl / actInv) * 100 : 0;
-    document.getElementById("globalActiveInvested").innerText = sym + formatMonto(actInv);
-    document.getElementById("globalActiveCurrent").innerText = sym + formatMonto(actCur);
-    document.getElementById("globalActivePNL").innerText = `${sym}${formatMonto(actPnl)} (${actPct.toFixed(2)}%)`;
+    const actPnl = actCur - actInv; const actPct = actInv > 0 ? (actPnl / actInv) * 100 : 0;
+    
+    document.getElementById("globalActiveInvested").innerText = obfuscate(sym + formatMonto(actInv));
+    document.getElementById("globalActiveCurrent").innerText = obfuscate(sym + formatMonto(actCur));
+    document.getElementById("globalActivePNL").innerText = obfuscate(`${sym}${formatMonto(actPnl)} (${actPct.toFixed(2)}%)`);
     document.getElementById("globalActivePNL").className = actPnl >= 0 ? "positive" : "negative";
 
     const clsInv = isUSD ? (b.clsInvUSD + fci.clsInvUSD) : (b.clsInvARS + fci.clsInvARS);
     const clsCur = isUSD ? (b.clsProUSD + fci.clsProUSD) : (b.clsProARS + fci.clsProARS);
-    const clsPnl = clsCur - clsInv;
-    const clsPct = clsInv > 0 ? (clsPnl / clsInv) * 100 : 0;
-    document.getElementById("globalClosedInvested").innerText = sym + formatMonto(clsInv);
-    document.getElementById("globalClosedCurrent").innerText = sym + formatMonto(clsCur);
-    document.getElementById("globalClosedPNL").innerText = `${sym}${formatMonto(clsPnl)} (${clsPct.toFixed(2)}%)`;
+    const clsPnl = clsCur - clsInv; const clsPct = clsInv > 0 ? (clsPnl / clsInv) * 100 : 0;
+    
+    document.getElementById("globalClosedInvested").innerText = obfuscate(sym + formatMonto(clsInv));
+    document.getElementById("globalClosedCurrent").innerText = obfuscate(sym + formatMonto(clsCur));
+    document.getElementById("globalClosedPNL").innerText = obfuscate(`${sym}${formatMonto(clsPnl)} (${clsPct.toFixed(2)}%)`);
     document.getElementById("globalClosedPNL").className = clsPnl >= 0 ? "positive" : "negative";
 
-    const totInv = actInv + clsInv;
-    const totCur = actCur + clsCur;
-    const totPnl = totCur - totInv;
-    const totPct = totInv > 0 ? (totPnl / totInv) * 100 : 0;
-    document.getElementById("globalTotalInvested").innerText = sym + formatMonto(totInv);
-    document.getElementById("globalTotalCurrent").innerText = sym + formatMonto(totCur);
-    document.getElementById("globalTotalPNL").innerText = `${sym}${formatMonto(totPnl)} (${totPct.toFixed(2)}%)`;
+    const totInv = actInv + clsInv; const totCur = actCur + clsCur;
+    const totPnl = totCur - totInv; const totPct = totInv > 0 ? (totPnl / totInv) * 100 : 0;
+    
+    document.getElementById("globalTotalInvested").innerText = obfuscate(sym + formatMonto(totInv));
+    document.getElementById("globalTotalCurrent").innerText = obfuscate(sym + formatMonto(totCur));
+    document.getElementById("globalTotalPNL").innerText = obfuscate(`${sym}${formatMonto(totPnl)} (${totPct.toFixed(2)}%)`);
     document.getElementById("globalTotalPNL").className = totPnl >= 0 ? "positive" : "negative";
 
     let combinedHoldings = [...bolsaHoldingsArr, ...lastFciHoldings];
     combinedHoldings.sort((a, b) => b.currentUSD - a.currentUSD);
 
-    // Aplicar el Filtro de Búsqueda a la tabla
     const filterText = document.getElementById("searchGlobalPortfolio")?.value || "";
     const filteredCombined = combinedHoldings.filter(h => matchSearch(`${h.ticker} ${h.tag}`, filterText));
 
     let html = filteredCombined.map(h => {
         let dispCur = isUSD ? h.currentUSD : h.currentARS;
         let dispPnl = isUSD ? h.pnlUSD : h.pnlARS;
-        
         return `<tr>
             <td><strong>${h.ticker}</strong> <span style="font-size:10px; color:#9ca3af; border:1px solid #374151; padding:2px; border-radius:4px; margin-left:5px;">${h.tag}</span></td>
-            <td>${h.qtyStr}</td>
-            <td>${h.nativeSym}${formatMonto(h.nativePPC)}</td>
+            <td>${obfuscate(h.qtyStr)}</td>
+            <td>${obfuscate(h.nativeSym + formatMonto(h.nativePPC))}</td>
             <td>${h.nativeSym}${formatMonto(h.nativePrice)}</td>
-            <td>${sym}${formatMonto(dispCur)}</td>
-            <td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${sym}${formatMonto(dispPnl)}</td>
-            <td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${h.pnlPct.toFixed(2)}%</td>
+            <td>${obfuscate(sym + formatMonto(dispCur))}</td>
+            <td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(dispPnl))}</td>
+            <td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>
         </tr>`;
     }).join("");
     document.getElementById("globalPortfolioResults").innerHTML = html || "<tr><td colspan='7'>Sin activos en cartera</td></tr>";
@@ -119,9 +129,7 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     let colors = pnlPcts.map(p => p >= 0 ? '#00ff00' : '#ff0044');
 
     if (globalPieChartInstance) { globalPieChartInstance.data.labels = labels; globalPieChartInstance.data.datasets[0].data = values; globalPieChartInstance.update(); } 
-    else { 
-        globalPieChartInstance = new Chart(document.getElementById('globalPieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { plugins: { legend: { position: 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); 
-    }
+    else { globalPieChartInstance = new Chart(document.getElementById('globalPieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { plugins: { legend: { position: 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
     if (globalBarChartInstance) { globalBarChartInstance.data.labels = labels; globalBarChartInstance.data.datasets[0].data = pnlPcts; globalBarChartInstance.data.datasets[0].backgroundColor = colors; globalBarChartInstance.update(); } 
     else { globalBarChartInstance = new Chart(document.getElementById('globalBarChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors }] }, options: { indexAxis: 'y', plugins: { legend: { display: false }, datalabels: { color: '#fff', formatter: v => v.toFixed(1) + '%' } } } }); }
 
@@ -141,8 +149,7 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
         globalChartAssetFilter.innerHTML = '<option value="ALL">Total Cartera</option>';
         uniqueTickers.forEach(t => {
             const opt = document.createElement('option'); opt.value = t; opt.innerText = t;
-            if (t === currentFilter) opt.selected = true;
-            globalChartAssetFilter.appendChild(opt);
+            if (t === currentFilter) opt.selected = true; globalChartAssetFilter.appendChild(opt);
         });
     }
 
@@ -153,15 +160,12 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     } catch (e) {}
 }
 
-let currentCategory = "all";
-let editingId = null;
+let currentCategory = "all"; let editingId = null;
 
 txTickerInput.addEventListener("input", () => {
-    const val = txTickerInput.value.toUpperCase();
-    tickerSuggestions.innerHTML = "";
+    const val = txTickerInput.value.toUpperCase(); tickerSuggestions.innerHTML = "";
     if (!val) { tickerSuggestions.style.display = "none"; return; }
-    const tickers = Object.keys(livePricesMap);
-    const matches = tickers.filter(t => t.includes(val)).slice(0, 8); 
+    const tickers = Object.keys(livePricesMap); const matches = tickers.filter(t => t.includes(val)).slice(0, 8); 
     if (matches.length > 0) {
         tickerSuggestions.style.display = "block";
         matches.forEach(match => { const li = document.createElement("li"); li.textContent = match; li.addEventListener("click", () => { txTickerInput.value = match; tickerSuggestions.style.display = "none"; }); tickerSuggestions.appendChild(li); });
@@ -179,12 +183,9 @@ window.addEventListener("click", (e) => { if (e.target === txModal) closeModal()
 transactionForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const submitBtn = document.getElementById("btnSubmitTx"); if (submitBtn.disabled) return; submitBtn.disabled = true; 
-    const tickerVal = txTickerInput.value.toUpperCase().trim();
-    const typeVal = document.getElementById("txType").value;
-    const qtyVal = parseInt(document.getElementById("txQty").value, 10);
-    const priceVal = parseFloat(document.getElementById("txPrice").value);
-    const commVal = parseFloat(document.getElementById("txComision").value) || 0;
-    const dateVal = document.getElementById("txDate").value;
+    const tickerVal = txTickerInput.value.toUpperCase().trim(); const typeVal = document.getElementById("txType").value;
+    const qtyVal = parseInt(document.getElementById("txQty").value, 10); const priceVal = parseFloat(document.getElementById("txPrice").value);
+    const commVal = parseFloat(document.getElementById("txComision").value) || 0; const dateVal = document.getElementById("txDate").value;
 
     const newTx = { id: editingId ? editingId : Date.now(), ticker: tickerVal, type: typeVal, qty: Math.abs(qtyVal), price: Math.abs(priceVal), commission: Math.abs(commVal), date: dateVal };
     if (editingId) { const idx = transactions.findIndex(t => t.id === editingId); if (idx !== -1) transactions[idx] = newTx; } else { transactions.push(newTx); }
@@ -197,34 +198,25 @@ transactionForm.addEventListener("submit", (e) => {
 async function loadData(category = "all") {
     currentCategory = category;
     try {
-        const mepRes = await fetch(CONFIG.DOLLAR_API);
-        const dolares = await mepRes.json();
+        const mepRes = await fetch(CONFIG.DOLLAR_API); const dolares = await mepRes.json();
         const historicoBolsa = dolares.filter(d => d.casa === "bolsa");
         if (historicoBolsa.length > 0) {
             historicoBolsa.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-            historicalMepRates = historicoBolsa;
-            currentMepRate = parseFloat(historicoBolsa[0].venta);
+            historicalMepRates = historicoBolsa; currentMepRate = parseFloat(historicoBolsa[0].venta);
             mepRateText.innerText = `(MEP: $${currentMepRate.toFixed(2)})`;
         }
         
         let data = [];
         if (category === "all") {
             const endpointKeys = Object.keys(CONFIG.ENDPOINTS);
-            const responses = await Promise.all(endpointKeys.map(key => 
-                fetch(`${CONFIG.BASE_URL}/${CONFIG.ENDPOINTS[key]}`)
-                    .then(r => r.json())
-                    .then(arr => arr.map(item => ({ ...item, assetType: key })))
-            ));
+            const responses = await Promise.all(endpointKeys.map(key => fetch(`${CONFIG.BASE_URL}/${CONFIG.ENDPOINTS[key]}`).then(r => r.json()).then(arr => arr.map(item => ({ ...item, assetType: key })))));
             data = responses.flat();
         } else {
-            const response = await fetch(`${CONFIG.BASE_URL}/${CONFIG.ENDPOINTS[category]}`);
-            const arr = await response.json();
+            const response = await fetch(`${CONFIG.BASE_URL}/${CONFIG.ENDPOINTS[category]}`); const arr = await response.json();
             data = arr.map(item => ({ ...item, assetType: category }));
         }
 
-        instruments = data;
-        instruments.forEach(i => { if(i.symbol) livePricesMap[i.symbol.toUpperCase()] = i; });
-        
+        instruments = data; instruments.forEach(i => { if(i.symbol) livePricesMap[i.symbol.toUpperCase()] = i; });
         renderHistory(); renderPortfolio(); renderMarketTable(); renderFciPortfolio(); 
     } catch (e) { console.error("Error cargando datos:", e); }
 }
@@ -236,30 +228,22 @@ function isBonoOrLetra(ticker) {
 
 function renderPortfolio() {
     const holdings = {};
-    let activeInvestedARS = 0; let activeInvestedUSD = 0;
-    let activeCurrentARS = 0; let activeCurrentUSD = 0;
-    let closedProceedsARS = 0; let closedProceedsUSD = 0;
-    let closedInvestedARS = 0; let closedInvestedUSD = 0;
-
-    let chartLabels = []; let chartValues = []; let chartColors = []; let chartPnlPct = [];
-    bolsaHoldingsArr = []; 
+    let activeInvestedARS = 0; let activeInvestedUSD = 0; let activeCurrentARS = 0; let activeCurrentUSD = 0;
+    let closedProceedsARS = 0; let closedProceedsUSD = 0; let closedInvestedARS = 0; let closedInvestedUSD = 0;
+    let chartLabels = []; let chartValues = []; let chartColors = []; let chartPnlPct = []; bolsaHoldingsArr = []; 
 
     const uniqueTickers = [...new Set(transactions.map(t => t.ticker))].sort();
     const currentFilter = chartAssetFilter.value;
     
     if (chartAssetFilter.options.length !== uniqueTickers.length + 1) {
         chartAssetFilter.innerHTML = '<option value="ALL">Total Cartera</option>';
-        uniqueTickers.forEach(t => {
-            const opt = document.createElement('option'); opt.value = t; opt.innerText = t;
-            if (t === currentFilter) opt.selected = true; chartAssetFilter.appendChild(opt);
-        });
+        uniqueTickers.forEach(t => { const opt = document.createElement('option'); opt.value = t; opt.innerText = t; if (t === currentFilter) opt.selected = true; chartAssetFilter.appendChild(opt); });
     }
 
     const sortedTxs = [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date));
     
     sortedTxs.forEach(tx => {
-        const isBono = isBonoOrLetra(tx.ticker);
-        const divisor = isBono ? 100 : 1; 
+        const isBono = isBonoOrLetra(tx.ticker); const divisor = isBono ? 100 : 1; 
 
         if (!holdings[tx.ticker]) holdings[tx.ticker] = { qty: 0, investedARS: 0, investedUSD: 0, divisor };
         const txMep = getHistoricalMepRate(tx.date);
@@ -269,14 +253,10 @@ function renderPortfolio() {
             holdings[tx.ticker].qty += tx.qty; holdings[tx.ticker].investedARS += cost; holdings[tx.ticker].investedUSD += (cost / txMep);
         } else if (tx.type === "sell" && holdings[tx.ticker].qty > 0) {
             const soldQty = Math.min(tx.qty, holdings[tx.ticker].qty);
-            const avgARS = holdings[tx.ticker].investedARS / holdings[tx.ticker].qty; 
-            const avgUSD = holdings[tx.ticker].investedUSD / holdings[tx.ticker].qty;
-            
+            const avgARS = holdings[tx.ticker].investedARS / holdings[tx.ticker].qty; const avgUSD = holdings[tx.ticker].investedUSD / holdings[tx.ticker].qty;
             closedInvestedARS += (avgARS * soldQty); closedInvestedUSD += (avgUSD * soldQty);
-            
             const proceedsARS = ((soldQty / divisor) * tx.price) - tx.commission;
             closedProceedsARS += proceedsARS; closedProceedsUSD += (proceedsARS / txMep);
-            
             holdings[tx.ticker].qty -= soldQty; holdings[tx.ticker].investedARS -= (avgARS * soldQty); holdings[tx.ticker].investedUSD -= (avgUSD * soldQty);
         }
     });
@@ -284,18 +264,11 @@ function renderPortfolio() {
     const sym = isUSD ? "u$s " : "$ ";
 
     for (let t in holdings) {
-        const h = holdings[t];
-        if (h.qty <= 0.001) continue; 
-        const liveData = livePricesMap[t];
-        const actualDivisor = h.divisor;
-        
+        const h = holdings[t]; if (h.qty <= 0.001) continue; 
+        const liveData = livePricesMap[t]; const actualDivisor = h.divisor;
         let livePriceARS = liveData && liveData.c ? parseFloat(liveData.c) : (h.investedARS / (h.qty / actualDivisor));
-        const price = isUSD ? livePriceARS / currentMepRate : livePriceARS;
-        const invested = isUSD ? h.investedUSD : h.investedARS;
-        
-        const currentVal = (h.qty / actualDivisor) * price;
-        const pnl = currentVal - invested;
-        const pnlP = invested > 0 ? (pnl / invested) * 100 : 0;
+        const price = isUSD ? livePriceARS / currentMepRate : livePriceARS; const invested = isUSD ? h.investedUSD : h.investedARS;
+        const currentVal = (h.qty / actualDivisor) * price; const pnl = currentVal - invested; const pnlP = invested > 0 ? (pnl / invested) * 100 : 0;
 
         activeInvestedARS += h.investedARS; activeInvestedUSD += h.investedUSD;
         activeCurrentARS += (isUSD ? currentVal * currentMepRate : currentVal); activeCurrentUSD += (isUSD ? currentVal : currentVal / currentMepRate);
@@ -313,29 +286,43 @@ function renderPortfolio() {
     bolsaTotals = { actInvARS: activeInvestedARS, actInvUSD: activeInvestedUSD, actCurARS: activeCurrentARS, actCurUSD: activeCurrentUSD, clsInvARS: closedInvestedARS, clsInvUSD: closedInvestedUSD, clsProARS: closedProceedsARS, clsProUSD: closedProceedsUSD };
     renderGlobalPortfolio(); 
 
-    // Aplicar Filtro Visual a la Tabla Bursátil
     const filterText = document.getElementById("searchBursatilPortfolio")?.value || "";
     const filteredBolsa = bolsaHoldingsArr.filter(h => matchSearch(h.ticker, filterText));
 
-    let html = filteredBolsa.map(h => `<tr><td><strong>${h.ticker}</strong></td><td>${h.qtyStr}</td><td>${sym}${formatMonto(isUSD ? h.nativePPC/currentMepRate : h.nativePPC)}</td><td>${sym}${formatMonto(isUSD ? h.nativePrice/currentMepRate : h.nativePrice)}</td><td>${sym}${formatMonto(isUSD ? h.currentUSD : h.currentARS)}</td><td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${sym}${formatMonto(isUSD ? h.pnlUSD : h.pnlARS)}</td><td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${h.pnlPct.toFixed(2)}%</td></tr>`).join("");
+    let html = filteredBolsa.map(h => `<tr>
+        <td><strong>${h.ticker}</strong></td>
+        <td>${obfuscate(h.qtyStr)}</td>
+        <td>${obfuscate(sym + formatMonto(isUSD ? h.nativePPC/currentMepRate : h.nativePPC))}</td>
+        <td>${sym}${formatMonto(isUSD ? h.nativePrice/currentMepRate : h.nativePrice)}</td>
+        <td>${obfuscate(sym + formatMonto(isUSD ? h.currentUSD : h.currentARS))}</td>
+        <td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(isUSD ? h.pnlUSD : h.pnlARS))}</td>
+        <td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>
+    </tr>`).join("");
     document.getElementById("portfolioResults").innerHTML = html || "<tr><td colspan='7'>Sin activos en cartera</td></tr>";
 
-
     const dispActiveInv = isUSD ? activeInvestedUSD : activeInvestedARS; const dispActiveCur = isUSD ? activeCurrentUSD : activeCurrentARS; const dispActivePNL = dispActiveCur - dispActiveInv;
-    document.getElementById("activeInvested").innerText = sym + formatMonto(dispActiveInv); document.getElementById("activeCurrent").innerText = sym + formatMonto(dispActiveCur); document.getElementById("activePNL").innerText = `${sym}${formatMonto(dispActivePNL)} (${(dispActiveInv > 0 ? (dispActivePNL / dispActiveInv * 100) : 0).toFixed(2)}%)`; document.getElementById("activePNL").className = dispActivePNL >= 0 ? "positive" : "negative";
+    document.getElementById("activeInvested").innerText = obfuscate(sym + formatMonto(dispActiveInv)); 
+    document.getElementById("activeCurrent").innerText = obfuscate(sym + formatMonto(dispActiveCur)); 
+    document.getElementById("activePNL").innerText = obfuscate(`${sym}${formatMonto(dispActivePNL)} (${(dispActiveInv > 0 ? (dispActivePNL / dispActiveInv * 100) : 0).toFixed(2)}%)`); 
+    document.getElementById("activePNL").className = dispActivePNL >= 0 ? "positive" : "negative";
 
     const dispClosedInv = isUSD ? closedInvestedUSD : closedInvestedARS; const dispClosedCur = isUSD ? closedProceedsUSD : closedProceedsARS; const dispClosedPNL = dispClosedCur - dispClosedInv;
-    document.getElementById("closedInvested").innerText = sym + formatMonto(dispClosedInv); document.getElementById("closedCurrent").innerText = sym + formatMonto(dispClosedCur); document.getElementById("closedPNL").innerText = `${sym}${formatMonto(dispClosedPNL)} (${(dispClosedInv > 0 ? (dispClosedPNL / dispClosedInv * 100) : 0).toFixed(2)}%)`; document.getElementById("closedPNL").className = dispClosedPNL >= 0 ? "positive" : "negative";
+    document.getElementById("closedInvested").innerText = obfuscate(sym + formatMonto(dispClosedInv)); 
+    document.getElementById("closedCurrent").innerText = obfuscate(sym + formatMonto(dispClosedCur)); 
+    document.getElementById("closedPNL").innerText = obfuscate(`${sym}${formatMonto(dispClosedPNL)} (${(dispClosedInv > 0 ? (dispClosedPNL / dispClosedInv * 100) : 0).toFixed(2)}%)`); 
+    document.getElementById("closedPNL").className = dispClosedPNL >= 0 ? "positive" : "negative";
 
     const dispTotalInv = dispActiveInv + dispClosedInv; const dispTotalCur = dispActiveCur + dispClosedCur; const dispTotalPNL = dispTotalCur - dispTotalInv;
-    document.getElementById("totalInvested").innerText = sym + formatMonto(dispTotalInv); document.getElementById("totalCurrent").innerText = sym + formatMonto(dispTotalCur); document.getElementById("totalPNL").innerText = `${sym}${formatMonto(dispTotalPNL)} (${(dispTotalInv > 0 ? (dispTotalPNL / dispTotalInv * 100) : 0).toFixed(2)}%)`; document.getElementById("totalPNL").className = dispTotalPNL >= 0 ? "positive" : "negative";
+    document.getElementById("totalInvested").innerText = obfuscate(sym + formatMonto(dispTotalInv)); 
+    document.getElementById("totalCurrent").innerText = obfuscate(sym + formatMonto(dispTotalCur)); 
+    document.getElementById("totalPNL").innerText = obfuscate(`${sym}${formatMonto(dispTotalPNL)} (${(dispTotalInv > 0 ? (dispTotalPNL / dispTotalInv * 100) : 0).toFixed(2)}%)`); 
+    document.getElementById("totalPNL").className = dispTotalPNL >= 0 ? "positive" : "negative";
 
     updateCharts(chartLabels, chartValues, chartPnlPct, chartColors);
 }
 
 const toggleNominal = document.getElementById("toggleNominal"); const togglePct = document.getElementById("togglePct");
 const globalToggleNominal = document.getElementById("globalToggleNominal"); const globalTogglePct = document.getElementById("globalTogglePct");
-
 function applyChartVisibility() { if (lineChartInstance) { lineChartInstance.data.datasets[0].hidden = !toggleNominal.checked; lineChartInstance.options.scales.y.display = toggleNominal.checked; lineChartInstance.data.datasets[1].hidden = !togglePct.checked; lineChartInstance.options.scales.y1.display = togglePct.checked; lineChartInstance.update(); } }
 function applyGlobalChartVisibility() { if (globalLineChartInstance) { globalLineChartInstance.data.datasets[0].hidden = !globalToggleNominal.checked; globalLineChartInstance.options.scales.y.display = globalToggleNominal.checked; globalLineChartInstance.data.datasets[1].hidden = !globalTogglePct.checked; globalLineChartInstance.options.scales.y1.display = globalTogglePct.checked; globalLineChartInstance.update(); } }
 
@@ -356,7 +343,15 @@ function renderHistory() {
     const filterText = document.getElementById("searchBursatilHistory")?.value || "";
     const filteredTxs = transactions.filter(tx => matchSearch(`${tx.ticker} ${tx.type}`, filterText));
     
-    historyResults.innerHTML = filteredTxs.map(tx => `<tr><td>${tx.date}</td><td><strong>${tx.ticker}</strong></td><td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Compra':'Venta'}</td><td>${tx.qty}</td><td>${sym}${formatMonto(tx.price)}</td><td>${sym}${formatMonto(tx.commission)}</td><td><div class="action-buttons"><button class="btn-edit" data-id="${tx.id}">Editar</button><button class="btn-delete" data-id="${tx.id}">X</button></div></td></tr>`).join("");
+    historyResults.innerHTML = filteredTxs.map(tx => `<tr>
+        <td>${tx.date}</td>
+        <td><strong>${tx.ticker}</strong></td>
+        <td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Compra':'Venta'}</td>
+        <td>${obfuscate(tx.qty)}</td>
+        <td>${obfuscate(sym + formatMonto(tx.price))}</td>
+        <td>${obfuscate(sym + formatMonto(tx.commission))}</td>
+        <td><div class="action-buttons"><button class="btn-edit" data-id="${tx.id}">Editar</button><button class="btn-delete" data-id="${tx.id}">X</button></div></td>
+    </tr>`).join("");
 }
 
 historyResults.addEventListener("click", (e) => {
@@ -381,7 +376,6 @@ currencySwitch.addEventListener("change", (e) => { isUSD = e.target.checked; ren
 chartAssetFilter.addEventListener("change", renderPortfolio);
 globalChartAssetFilter.addEventListener("change", renderGlobalPortfolio);
 
-// Event Listeners de los nuevos buscadores
 document.getElementById("searchGlobalPortfolio")?.addEventListener("input", () => renderGlobalPortfolio());
 document.getElementById("searchBursatilPortfolio")?.addEventListener("input", renderPortfolio);
 document.getElementById("searchBursatilHistory")?.addEventListener("input", renderHistory);
