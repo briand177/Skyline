@@ -1,4 +1,4 @@
-import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, renderGlobalPortfolio } from "./app.js";
+import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, renderGlobalPortfolio, matchSearch } from "./app.js";
 
 let fciData = [];
 let hasLoadedFci = false;
@@ -8,14 +8,7 @@ let editingFciId = null;
 export async function initFCI() {
     if (hasLoadedFci) return; 
     const fciResults = document.getElementById("fciResults");
-    const searchInput = document.getElementById("searchFciInput");
-    if (!fciResults) return; 
-
-    if (searchInput && !searchInput.dataset.connected) {
-        searchInput.addEventListener("keyup", renderFciTable);
-        searchInput.dataset.connected = "true";
-    }
-
+    
     fciResults.innerHTML = "<tr><td colspan='3'>Cargando listado de FCI...</td></tr>";
 
     try {
@@ -67,9 +60,12 @@ function renderFciTable() {
     const fciResults = document.getElementById("fciResults");
     if (!fciResults) return;
 
-    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
+    const searchTerm = searchInput ? searchInput.value.trim() : "";
     let filtered = fciData;
-    if (searchTerm !== "") filtered = fciData.filter(item => item.symbol && item.symbol.toLowerCase().includes(searchTerm));
+    if (searchTerm !== "") {
+        // Usa el buscador mágico importado de app.js
+        filtered = fciData.filter(item => matchSearch(`${item.symbol} ${item.tipo}`, searchTerm));
+    }
     
     const dataToRender = searchTerm === "" ? filtered.slice(0, 100) : filtered;
 
@@ -84,6 +80,9 @@ function renderFciTable() {
         `;
     }).join("") || "<tr><td colspan='3'>Sin resultados.</td></tr>";
 }
+
+// Conectar barra de mercado en vivo
+document.getElementById("searchFciInput")?.addEventListener("input", renderFciTable);
 
 const fciModal = document.getElementById("fciTxModal");
 document.getElementById("btnOpenFciTxModal").addEventListener("click", () => {
@@ -117,7 +116,8 @@ fciTickerInput.addEventListener("input", () => {
     fciTickerSuggestions.innerHTML = "";
     if (!val || fciData.length === 0) { fciTickerSuggestions.style.display = "none"; return; }
     
-    const matches = fciData.filter(t => t.symbol.toLowerCase().includes(val)).slice(0, 10);
+    // Filtra sin tildes también en el autocompletado del formulario
+    const matches = fciData.filter(t => matchSearch(t.symbol, val)).slice(0, 10);
     if (matches.length > 0) {
         fciTickerSuggestions.style.display = "block";
         matches.forEach(match => {
@@ -200,7 +200,6 @@ export function renderFciPortfolio() {
         }
     });
 
-    let html = "";
     const sym = isUSD ? "u$s " : "$ ";
 
     for (let t in holdings) {
@@ -233,18 +232,24 @@ export function renderFciPortfolio() {
             currentARS: currentValARS, currentUSD: currentValUSD,
             pnlARS: currentValARS - h.invARS, pnlUSD: currentValUSD - h.invUSD, pnlPct: pnlP
         });
-
-        html += `<tr>
-            <td><strong>${t}</strong></td>
-            <td><span style="font-size:12px; color:#9ca3af; padding:2px 6px; border:1px solid #374151; border-radius:4px;">${h.isUSD ? 'USD' : 'ARS'}</span></td>
-            <td>${formatMonto(h.qty)}</td>
-            <td>${nativeSym}${formatMonto(displayBuyPrice)}</td>
-            <td>${nativeSym}${formatMonto(apiPriceUnit)}</td>
-            <td>${sym}${formatMonto(currentVal)}</td>
-            <td class="${pnl >= 0 ? 'positive' : 'negative'}">${sym}${formatMonto(pnl)}</td>
-            <td class="${pnl >= 0 ? 'positive' : 'negative'}">${pnlP.toFixed(2)}%</td>
-        </tr>`;
     }
+
+    // Filtrar la tabla de FCI
+    const filterText = document.getElementById("searchFciPortfolio")?.value || "";
+    const filteredFci = fciHoldingsArr.filter(h => matchSearch(h.ticker, filterText));
+
+    let html = filteredFci.map(h => `
+        <tr>
+            <td><strong>${h.ticker}</strong></td>
+            <td><span style="font-size:12px; color:#9ca3af; padding:2px 6px; border:1px solid #374151; border-radius:4px;">${h.nativeSym === 'u$s ' ? 'USD' : 'ARS'}</span></td>
+            <td>${h.qtyStr}</td>
+            <td>${h.nativeSym}${formatMonto(h.nativePPC)}</td>
+            <td>${h.nativeSym}${formatMonto(h.nativePrice)}</td>
+            <td>${sym}${formatMonto(isUSD ? h.currentUSD : h.currentARS)}</td>
+            <td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${sym}${formatMonto(isUSD ? h.pnlUSD : h.pnlARS)}</td>
+            <td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${h.pnlPct.toFixed(2)}%</td>
+        </tr>
+    `).join("");
 
     document.getElementById("fciPortfolioResults").innerHTML = html || "<tr><td colspan='8'>Sin fondos en cartera</td></tr>";
 
@@ -276,7 +281,11 @@ export function renderFciPortfolio() {
 }
 
 export function renderFciHistory() {
-    document.getElementById("fciHistoryResults").innerHTML = fciTransactions.map(tx => {
+    const filterText = document.getElementById("searchFciHistory")?.value || "";
+    // El buscador revisa Ticker, Tipo de Op, Moneda
+    const filteredTxs = fciTransactions.filter(tx => matchSearch(`${tx.ticker} ${tx.type === 'buy' ? 'Suscripción' : 'Rescate'} ${tx.currency}`, filterText));
+
+    document.getElementById("fciHistoryResults").innerHTML = filteredTxs.map(tx => {
         const nativeSym = tx.currency === 'USD' ? "u$s " : "$ ";
         return `<tr>
             <td>${tx.date}</td>
@@ -292,10 +301,13 @@ export function renderFciHistory() {
                 </div>
             </td>
         </tr>`;
-    }).join("");
+    }).join("") || "<tr><td colspan='7'>Sin operaciones</td></tr>";
 }
 
-// BOTÓN EDITAR SOLUCIONADO (Usa String estricto)
+// Conectar listeners
+document.getElementById("searchFciPortfolio")?.addEventListener("input", renderFciPortfolio);
+document.getElementById("searchFciHistory")?.addEventListener("input", renderFciHistory);
+
 window.editarFciTx = function(id) {
     const tx = fciTransactions.find(t => String(t.id) === String(id));
     if(tx) {
@@ -317,7 +329,6 @@ window.editarFciTx = function(id) {
     }
 }
 
-// BOTÓN ELIMINAR SOLUCIONADO (Usa String estricto)
 window.eliminarFciTx = function(id) {
     if(confirm("¿Eliminar operación de FCI?")) { 
         fciTransactions = fciTransactions.filter(t => String(t.id) !== String(id)); 
@@ -400,7 +411,6 @@ if(fileImportFci) {
             } else alert("Revisá el formato del archivo CSV.");
             fileImportFci.value = ""; 
         }; 
-        // LECTURA EN FORMATO WINDOWS-1252 PARA NO ROMPER LOS ACENTOS ("Ó")
         reader.readAsText(file, 'windows-1252'); 
     });
 }

@@ -64,7 +64,10 @@
             </div>
 
             <div class="table-container">
-                <h3>Mis Tenencias (Globales)</h3>
+                <div class="table-header">
+                    <h3>Mis Tenencias (Globales)</h3>
+                    <input type="text" id="searchGlobalPortfolio" class="filter-input" placeholder="Filtrar activo..." autocomplete="off">
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -147,7 +150,10 @@
             </div>
 
             <div class="table-container">
-                <h3>Mis Tenencias Bursátiles</h3>
+                <div class="table-header">
+                    <h3>Mis Tenencias Bursátiles</h3>
+                    <input type="text" id="searchBursatilPortfolio" class="filter-input" placeholder="Filtrar ticker..." autocomplete="off">
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -231,7 +237,10 @@
             </div>
 
             <div class="table-container">
-                <h3>Mis Tenencias FCI</h3>
+                <div class="table-header">
+                    <h3>Mis Tenencias FCI</h3>
+                    <input type="text" id="searchFciPortfolio" class="filter-input" placeholder="Filtrar fondo..." autocomplete="off">
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -252,10 +261,13 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3>Historial de Movimientos FCI</h3>
-                    <div class="import-export-btns">
-                        <button id="btnExportFci" class="btn-action">⬇ Exportar CSV</button>
-                        <button id="btnImportFci" class="btn-action">⬆ Importar CSV</button>
-                        <input type="file" id="fileImportFci" accept=".csv" style="display: none;">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="text" id="searchFciHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
+                        <div class="import-export-btns">
+                            <button id="btnExportFci" class="btn-action">⬇ Exportar CSV</button>
+                            <button id="btnImportFci" class="btn-action">⬆ Importar CSV</button>
+                            <input type="file" id="fileImportFci" accept=".csv" style="display: none;">
+                        </div>
                     </div>
                 </div>
                 <table>
@@ -337,10 +349,13 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3>Historial de Operaciones</h3>
-                    <div class="import-export-btns">
-                        <button id="btnExport" class="btn-action">⬇ Exportar CSV</button>
-                        <button id="btnImport" class="btn-action">⬆ Importar CSV</button>
-                        <input type="file" id="fileImport" accept=".csv" style="display: none;">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="text" id="searchBursatilHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
+                        <div class="import-export-btns">
+                            <button id="btnExport" class="btn-action">⬇ Exportar CSV</button>
+                            <button id="btnImport" class="btn-action">⬆ Importar CSV</button>
+                            <input type="file" id="fileImport" accept=".csv" style="display: none;">
+                        </div>
                     </div>
                 </div>
                 <table>

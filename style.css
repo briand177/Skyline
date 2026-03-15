@@ -228,3 +228,31 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     border-color: #00f7ff;
     box-shadow: 0 0 8px rgba(0, 247, 255, 0.3);
 }
+
+
+
+/* --- BARRAS DE FILTRO PARA TABLAS --- */
+.filter-input {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #1f2937;
+    background: #111827;
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    transition: 0.3s;
+    width: 250px;
+    margin-bottom: 0;
+}
+.filter-input:focus {
+    border-color: #00f7ff;
+    box-shadow: 0 0 5px rgba(0, 247, 255, 0.3);
+}
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
