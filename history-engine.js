@@ -39,11 +39,14 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
         const rate = historicalMepRates.find(d => d.fecha <= dateStr);
         return rate ? parseFloat(rate.venta) : currentMepRate;
     }
+    
+    function isBonoOrLetra(ticker) {
+        if (livePricesMap[ticker] && (livePricesMap[ticker].assetType === 'bonos' || livePricesMap[ticker].assetType === 'letras')) return true;
+        return /^(AL|GD|AE|ME|TX|TV|T2|S[0-9]|X[0-9]|Y[0-9]|TD[0-9]|TC[0-9]|TO[0-9])/.test(ticker) && ticker.length <= 6;
+    }
 
-    // --- ROTADOR DE PROXIES ANTI-BLOQUEO CORS ---
     async function fetchYahoo(tickerSymbol) {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${tickerSymbol}?interval=1d&range=${range}&_=${Date.now()}`;
-        
         const proxies = [
             `https://corsproxy.io/?${encodeURIComponent(url)}`,
             `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
@@ -53,8 +56,7 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
         for (let proxyURL of proxies) {
             try {
                 const res = await fetch(proxyURL);
-                if (!res.ok) continue; // Si este proxy falló o te bloqueó, salta al siguiente
-                
+                if (!res.ok) continue; 
                 const json = await res.json();
                 const timestamps = json.chart.result[0].timestamp;
                 const closePrices = json.chart.result[0].indicators.quote[0].close;
@@ -67,11 +69,9 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                     }
                 }
                 return Object.keys(result).length > 0 ? result : null;
-            } catch (e) {
-                // Error silencioso, probará el próximo enlace de la lista
-            }
+            } catch (e) {}
         }
-        return null; // Solo falla si los 3 proxies mundiales están caídos a la vez
+        return null; 
     }
 
     const now = Date.now();
@@ -118,7 +118,9 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                         }
                         
                         if (usPriceOnBuyDate) {
-                            cedearRatio = firstTx.price / (usPriceOnBuyDate * txMep);
+                            // Para Bonos el ratio histórico también divide por su divisor
+                            const actualDivisor = isBonoOrLetra(firstTx.ticker) ? 100 : 1;
+                            cedearRatio = firstTx.price / (usPriceOnBuyDate * txMep * actualDivisor);
                         } else if (livePricesMap && livePricesMap[ticker] && livePricesMap[ticker].c) {
                             let usDates = Object.keys(dataUS).sort();
                             let lastUSPrice = dataUS[usDates[usDates.length - 1]];
@@ -162,17 +164,20 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
         
         const dailyTxs = sortedTxs.filter(tx => tx.date === dateStr);
         dailyTxs.forEach(tx => {
-            if (!currentHoldings[tx.ticker]) currentHoldings[tx.ticker] = { qty: 0, investedARS: 0, investedUSD: 0 };
+            const isBono = isBonoOrLetra(tx.ticker);
+            const divisor = isBono ? 100 : 1;
+
+            if (!currentHoldings[tx.ticker]) currentHoldings[tx.ticker] = { qty: 0, investedARS: 0, investedUSD: 0, divisor };
             
             if (tx.type === "buy") {
-                const costARS = (tx.qty * tx.price) + tx.commission;
+                const costARS = ((tx.qty / divisor) * tx.price) + tx.commission;
                 currentHoldings[tx.ticker].qty += tx.qty;
                 currentHoldings[tx.ticker].investedARS += costARS;
                 currentHoldings[tx.ticker].investedUSD += (costARS / dailyMep);
             } else if (tx.type === "sell" && currentHoldings[tx.ticker].qty > 0) {
                 const avgARS = currentHoldings[tx.ticker].investedARS / currentHoldings[tx.ticker].qty;
                 const avgUSD = currentHoldings[tx.ticker].investedUSD / currentHoldings[tx.ticker].qty;
-                const proceedsARS = (tx.qty * tx.price) - tx.commission;
+                const proceedsARS = ((tx.qty / divisor) * tx.price) - tx.commission;
                 
                 closedInvestedARS += (avgARS * tx.qty);
                 closedInvestedUSD += (avgUSD * tx.qty);
@@ -192,8 +197,9 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
             if (currentHoldings[t].qty > 0) {
                 activeInvestedARS += currentHoldings[t].investedARS;
                 activeInvestedUSD += currentHoldings[t].investedUSD;
-
-                let livePriceARS = currentHoldings[t].investedARS / currentHoldings[t].qty;
+                
+                const actualDivisor = currentHoldings[t].divisor;
+                let livePriceARS = currentHoldings[t].investedARS / (currentHoldings[t].qty / actualDivisor);
                 if (livePricesMap && livePricesMap[t] && livePricesMap[t].c) {
                     livePriceARS = parseFloat(livePricesMap[t].c);
                 }
@@ -218,7 +224,7 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                     let daysTotal = (chartEndDate - startD) / 86400000 || 1;
                     let daysElapsed = (d - startD) / 86400000;
                     let progress = Math.max(0, Math.min(1, daysElapsed / daysTotal));
-                    let startPrice = currentHoldings[t].investedARS / currentHoldings[t].qty;
+                    let startPrice = currentHoldings[t].investedARS / (currentHoldings[t].qty / actualDivisor);
                     priceTodayARS = startPrice + (livePriceARS - startPrice) * progress;
                 }
 
@@ -226,8 +232,8 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                     priceTodayARS = parseFloat(livePricesMap[t].c);
                 }
 
-                activeCurrentValARS += (currentHoldings[t].qty * priceTodayARS);
-                activeCurrentValUSD += (currentHoldings[t].qty * priceTodayARS) / dailyMep;
+                activeCurrentValARS += ((currentHoldings[t].qty / actualDivisor) * priceTodayARS);
+                activeCurrentValUSD += ((currentHoldings[t].qty / actualDivisor) * priceTodayARS) / dailyMep;
             }
         }
 

@@ -115,7 +115,6 @@
         </div>
 
         <div id="portfolioView" class="view-section">
-            
             <div class="table-header" style="margin-bottom: 20px;">
                 <h3 style="color: #fff;">📈 Cartera Bursátil (Acciones, CEDEARs y Bonos)</h3>
             </div>
@@ -251,7 +250,14 @@
             </div>
 
             <div class="table-container">
-                <h3>Historial de Movimientos FCI</h3>
+                <div class="table-header">
+                    <h3>Historial de Movimientos FCI</h3>
+                    <div class="import-export-btns">
+                        <button id="btnExportFci" class="btn-action">⬇ Exportar CSV</button>
+                        <button id="btnImportFci" class="btn-action">⬆ Importar CSV</button>
+                        <input type="file" id="fileImportFci" accept=".csv" style="display: none;">
+                    </div>
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -396,7 +402,7 @@
                         </tr>
                     </thead>
                     <tbody id="fciResults">
-                        <tr><td colspan='3'>Cargando fondos...</td></tr>
+                        <tr><td colspan='3'>Cargando listado de FCI...</td></tr>
                     </tbody>
                 </table>
             </div>

@@ -3,7 +3,7 @@ import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, renderGlobalP
 let fciData = [];
 let hasLoadedFci = false;
 let fciTransactions = JSON.parse(localStorage.getItem('skyline_fci_txs')) || [];
-let editingFciId = null; // Variable para saber si estamos editando
+let editingFciId = null;
 
 export async function initFCI() {
     if (hasLoadedFci) return; 
@@ -16,7 +16,7 @@ export async function initFCI() {
         searchInput.dataset.connected = "true";
     }
 
-    fciResults.innerHTML = "<tr><td colspan='3'>Conectando con la base de ArgentinaDatos...</td></tr>";
+        fciResults.innerHTML = "<tr><td colspan='3'>Cargando listado de FCI...</td></tr>";
 
     try {
         const tipos = ['mercadoDinero', 'rentaVariable', 'rentaFija', 'rentaMixta'];
@@ -295,7 +295,6 @@ export function renderFciHistory() {
     }).join("");
 }
 
-// Nueva Función: Editar Transacción FCI
 window.editarFciTx = function(id) {
     const tx = fciTransactions.find(t => t.id === id);
     if(tx) {
@@ -324,6 +323,86 @@ window.eliminarFciTx = function(id) {
         renderFciHistory(); 
         renderFciPortfolio(); 
     }
+}
+
+// ==========================================
+// IMPORTAR / EXPORTAR CSV DE FCI
+// ==========================================
+const btnExportFci = document.getElementById("btnExportFci");
+if(btnExportFci) {
+    btnExportFci.addEventListener("click", () => {
+        if (fciTransactions.length === 0) { alert("No hay transacciones de FCI para exportar."); return; }
+        let csvContent = "\uFEFFid;ticker;type;currency;qty;price;date\n";
+        fciTransactions.forEach(t => {
+            const pTxt = t.price.toString().replace('.', ',');
+            const qTxt = t.qty.toString().replace('.', ',');
+            csvContent += `${t.id};${t.ticker};${t.type};${t.currency};${qTxt};${pTxt};${t.date}\n`;
+        });
+        const hoy = new Date(); const fechaTxt = hoy.toISOString().split('T')[0];
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `skyline_fci_${fechaTxt}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+}
+
+const btnImportFci = document.getElementById("btnImportFci");
+const fileImportFci = document.getElementById("fileImportFci");
+if(btnImportFci) btnImportFci.addEventListener("click", () => fileImportFci.click()); 
+
+if(fileImportFci) {
+    fileImportFci.addEventListener("change", (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const text = event.target.result; 
+            const lines = text.replace(/\r/g, "").split("\n").filter(line => line.trim() !== "");
+            if (lines.length <= 1) { alert("Archivo vacío o formato incorrecto."); return; }
+            
+            let importedTxs = [];
+            for (let i = 1; i < lines.length; i++) {
+                const separador = lines[i].includes(";") ? ";" : ","; 
+                const cols = lines[i].split(separador);
+                if (cols.length >= 7) {
+                    let rawDate = cols[6].trim(); let parsedDate = rawDate;
+                    if (rawDate.includes('/')) { 
+                        let p = rawDate.split('/'); 
+                        if (p.length === 3) parsedDate = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`; 
+                    }
+                    importedTxs.push({ 
+                        id: cols[0].trim(), 
+                        ticker: cols[1].trim(), 
+                        type: cols[2].trim().toLowerCase().includes("sell") ? "sell" : "buy", 
+                        currency: cols[3].trim().toUpperCase() === "USD" ? "USD" : "ARS",
+                        qty: Math.abs(parseFloat(cols[4].replace(/,/g, '.'))), 
+                        price: parseFloat(cols[5].replace(/,/g, '.')), 
+                        date: parsedDate 
+                    });
+                }
+            }
+            if (importedTxs.length > 0) {
+                if (confirm(`Se leyeron ${importedTxs.length} operaciones de FCI.\n\n¿REEMPLAZAR tu historial actual de fondos?`)) { 
+                    fciTransactions = importedTxs; 
+                } else { 
+                    const existingIds = new Set(fciTransactions.map(t => String(t.id))); 
+                    importedTxs.forEach(t => { 
+                        if (existingIds.has(String(t.id))) t.id = Date.now() + Math.random(); 
+                        fciTransactions.push(t); 
+                    }); 
+                }
+                localStorage.setItem('skyline_fci_txs', JSON.stringify(fciTransactions)); 
+                renderFciHistory(); 
+                renderFciPortfolio(); 
+                alert("¡Fondos importados con éxito!");
+            } else alert("Revisá el formato del archivo CSV.");
+            fileImportFci.value = ""; 
+        }; 
+        reader.readAsText(file);
+    });
 }
 
 document.addEventListener("DOMContentLoaded", () => { renderFciHistory(); renderFciPortfolio(); });

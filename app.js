@@ -88,7 +88,6 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
         let dispCur = isUSD ? h.currentUSD : h.currentARS;
         let dispPnl = isUSD ? h.pnlUSD : h.pnlARS;
         
-        // Muestra Precios en MONEDA ORIGEN, y Valor en MONEDA DEL SWITCH
         return `<tr>
             <td><strong>${h.ticker}</strong> <span style="font-size:10px; color:#9ca3af; border:1px solid #374151; padding:2px; border-radius:4px; margin-left:5px;">${h.tag}</span></td>
             <td>${h.qtyStr}</td>
@@ -121,7 +120,7 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     let combinedTxs = [...transactions, ...normalizedFciTxs];
     
     let globalPricesMap = { ...livePricesMap };
-    lastFciHoldings.forEach(h => { globalPricesMap[h.ticker] = { c: h.priceARS }; }); // Convierte a ARS para graficar la historia combinada
+    lastFciHoldings.forEach(h => { globalPricesMap[h.ticker] = { c: h.priceARS }; });
 
     const uniqueTickers = [...new Set(combinedTxs.map(t => t.ticker))].sort();
     const currentFilter = globalChartAssetFilter.value;
@@ -197,12 +196,18 @@ async function loadData(category = "all") {
         
         let data = [];
         if (category === "all") {
-            const endpoints = Object.values(CONFIG.ENDPOINTS);
-            const responses = await Promise.all(endpoints.map(ep => fetch(`${CONFIG.BASE_URL}/${ep}`).then(r => r.json())));
+            const endpointKeys = Object.keys(CONFIG.ENDPOINTS);
+            // Inyectamos dinámicamente qué tipo de activo es (bono, accion, etc)
+            const responses = await Promise.all(endpointKeys.map(key => 
+                fetch(`${CONFIG.BASE_URL}/${CONFIG.ENDPOINTS[key]}`)
+                    .then(r => r.json())
+                    .then(arr => arr.map(item => ({ ...item, assetType: key })))
+            ));
             data = responses.flat();
         } else {
             const response = await fetch(`${CONFIG.BASE_URL}/${CONFIG.ENDPOINTS[category]}`);
-            data = await response.json();
+            const arr = await response.json();
+            data = arr.map(item => ({ ...item, assetType: category }));
         }
 
         instruments = data;
@@ -210,6 +215,12 @@ async function loadData(category = "all") {
         
         renderHistory(); renderPortfolio(); renderMarketTable(); renderFciPortfolio(); 
     } catch (e) { console.error("Error cargando datos:", e); }
+}
+
+// Detector Inteligente de Bonos y Letras
+function isBonoOrLetra(ticker) {
+    if (livePricesMap[ticker] && (livePricesMap[ticker].assetType === 'bonos' || livePricesMap[ticker].assetType === 'letras')) return true;
+    return /^(AL|GD|AE|ME|TX|TV|T2|S[0-9]|X[0-9]|Y[0-9]|TD[0-9]|TC[0-9]|TO[0-9])/.test(ticker) && ticker.length <= 6;
 }
 
 function renderPortfolio() {
@@ -236,17 +247,25 @@ function renderPortfolio() {
     const sortedTxs = [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date));
     
     sortedTxs.forEach(tx => {
-        if (!holdings[tx.ticker]) holdings[tx.ticker] = { qty: 0, investedARS: 0, investedUSD: 0 };
+        const isBono = isBonoOrLetra(tx.ticker);
+        const divisor = isBono ? 100 : 1; // Si es bono o letra, se divide por 100 nominales
+
+        if (!holdings[tx.ticker]) holdings[tx.ticker] = { qty: 0, investedARS: 0, investedUSD: 0, divisor };
         const txMep = getHistoricalMepRate(tx.date);
+
         if (tx.type === "buy") {
-            const cost = (tx.qty * tx.price) + tx.commission;
+            const cost = ((tx.qty / divisor) * tx.price) + tx.commission;
             holdings[tx.ticker].qty += tx.qty; holdings[tx.ticker].investedARS += cost; holdings[tx.ticker].investedUSD += (cost / txMep);
         } else if (tx.type === "sell" && holdings[tx.ticker].qty > 0) {
             const soldQty = Math.min(tx.qty, holdings[tx.ticker].qty);
-            const avgARS = holdings[tx.ticker].investedARS / holdings[tx.ticker].qty; const avgUSD = holdings[tx.ticker].investedUSD / holdings[tx.ticker].qty;
+            const avgARS = holdings[tx.ticker].investedARS / holdings[tx.ticker].qty; 
+            const avgUSD = holdings[tx.ticker].investedUSD / holdings[tx.ticker].qty;
+            
             closedInvestedARS += (avgARS * soldQty); closedInvestedUSD += (avgUSD * soldQty);
-            const proceedsARS = (soldQty * tx.price) - tx.commission;
+            
+            const proceedsARS = ((soldQty / divisor) * tx.price) - tx.commission;
             closedProceedsARS += proceedsARS; closedProceedsUSD += (proceedsARS / txMep);
+            
             holdings[tx.ticker].qty -= soldQty; holdings[tx.ticker].investedARS -= (avgARS * soldQty); holdings[tx.ticker].investedUSD -= (avgUSD * soldQty);
         }
     });
@@ -258,10 +277,14 @@ function renderPortfolio() {
         const h = holdings[t];
         if (h.qty <= 0.001) continue; 
         const liveData = livePricesMap[t];
-        let livePriceARS = liveData && liveData.c ? parseFloat(liveData.c) : (h.investedARS / h.qty);
+        const actualDivisor = h.divisor;
+        
+        let livePriceARS = liveData && liveData.c ? parseFloat(liveData.c) : (h.investedARS / (h.qty / actualDivisor));
         const price = isUSD ? livePriceARS / currentMepRate : livePriceARS;
         const invested = isUSD ? h.investedUSD : h.investedARS;
-        const currentVal = h.qty * price;
+        
+        // El valor actual ahora contempla si hay que dividir por 100
+        const currentVal = (h.qty / actualDivisor) * price;
         const pnl = currentVal - invested;
         const pnlP = invested > 0 ? (pnl / invested) * 100 : 0;
 
@@ -270,15 +293,14 @@ function renderPortfolio() {
 
         chartLabels.push(t); chartValues.push(currentVal); chartPnlPct.push(pnlP); chartColors.push(pnlP >= 0 ? '#00ff00' : '#ff0044');
 
-        // Empaquetado NATIVO para la vista Global
         bolsaHoldingsArr.push({
-            ticker: t, tag: "Bursátil", qtyStr: h.qty.toString(),
-            nativeSym: "$ ", nativePPC: h.investedARS / h.qty, nativePrice: livePriceARS,
+            ticker: t, tag: actualDivisor === 100 ? "Bono/Letra" : "Bursátil", qtyStr: h.qty.toString(),
+            nativeSym: "$ ", nativePPC: h.investedARS / (h.qty / actualDivisor), nativePrice: livePriceARS,
             currentARS: isUSD ? currentVal * currentMepRate : currentVal, currentUSD: isUSD ? currentVal : currentVal / currentMepRate,
             pnlARS: (isUSD ? currentVal * currentMepRate : currentVal) - h.investedARS, pnlUSD: (isUSD ? currentVal : currentVal / currentMepRate) - h.investedUSD, pnlPct: pnlP
         });
 
-        html += `<tr><td><strong>${t}</strong></td><td>${h.qty}</td><td>${sym}${formatMonto(invested/h.qty)}</td><td>${sym}${formatMonto(price)}</td><td>${sym}${formatMonto(currentVal)}</td><td class="${pnl >= 0 ? 'positive' : 'negative'}">${sym}${formatMonto(pnl)}</td><td class="${pnl >= 0 ? 'positive' : 'negative'}">${pnlP.toFixed(2)}%</td></tr>`;
+        html += `<tr><td><strong>${t}</strong></td><td>${h.qty}</td><td>${sym}${formatMonto(invested / (h.qty / actualDivisor))}</td><td>${sym}${formatMonto(price)}</td><td>${sym}${formatMonto(currentVal)}</td><td class="${pnl >= 0 ? 'positive' : 'negative'}">${sym}${formatMonto(pnl)}</td><td class="${pnl >= 0 ? 'positive' : 'negative'}">${pnlP.toFixed(2)}%</td></tr>`;
     }
 
     portfolioResults.innerHTML = html || "<tr><td colspan='7'>Sin activos en cartera</td></tr>";
