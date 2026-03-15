@@ -13,7 +13,7 @@
     <div class="container">
         
         <div class="header-top">
-            <h1 class="title">Skyline</h1>
+            <h1 class="title" id="logoSkyline" title="Volver al Inicio">Skyline</h1>
             
             <div style="display: flex; align-items: center; gap: 15px;">
                 <button id="privacyToggleBtn" class="btn-privacy" title="Ocultar saldos">👁️</button>
@@ -28,7 +28,6 @@
                     <small id="mepRateText">(Cargando MEP...)</small>
                 </div>
             </div>
-            
         </div>
 
         <div class="nav-tabs">
@@ -47,24 +46,24 @@
                     <h3>Patrimonio Activo</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido:</span> <span id="globalActiveInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Actual:</span> <span id="globalActiveCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance:</span> <span id="globalActivePNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row highlight-actual"><span>Actual:</span> <span id="globalActiveCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento:</span> <span id="globalActivePNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
                 <div class="card complex-card card-cerrada" style="background: linear-gradient(145deg, #111827, #0b0f1a); border: 1px solid rgba(255, 0, 255, 0.3);">
                     <h3>Patrimonio Cerrado</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido:</span> <span id="globalClosedInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Recuperado:</span> <span id="globalClosedCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance:</span> <span id="globalClosedPNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row spacer-row"><span>Recuperado:</span> <span id="globalClosedCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento:</span> <span id="globalClosedPNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
                 <div class="card complex-card card-total" style="background: linear-gradient(145deg, #111827, #0b0f1a); border: 1px solid rgba(245, 158, 11, 0.3);">
                     <h3>Resultado Histórico Total</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido Total:</span> <span id="globalTotalInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Monto Total:</span> <span id="globalTotalCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance Total:</span> <span id="globalTotalPNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row spacer-row"><span>Monto Total:</span> <span id="globalTotalCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento Total:</span> <span id="globalTotalPNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
             </div>
@@ -133,24 +132,24 @@
                     <h3>Bolsa Activa</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido:</span> <span id="activeInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Actual:</span> <span id="activeCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance:</span> <span id="activePNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row highlight-actual"><span>Actual:</span> <span id="activeCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento:</span> <span id="activePNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
                 <div class="card complex-card card-cerrada">
                     <h3>Bolsa Cerrada</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido:</span> <span id="closedInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Recuperado:</span> <span id="closedCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance:</span> <span id="closedPNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row spacer-row"><span>Recuperado:</span> <span id="closedCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento:</span> <span id="closedPNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
                 <div class="card complex-card card-total">
                     <h3>Resultado Bolsa</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido Total:</span> <span id="totalInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Monto Total:</span> <span id="totalCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance Total:</span> <span id="totalPNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row spacer-row"><span>Monto Total:</span> <span id="totalCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento Total:</span> <span id="totalPNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
             </div>
@@ -220,24 +219,24 @@
                     <h3>FCI Activos</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido:</span> <span id="fciActiveInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Actual:</span> <span id="fciActiveCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance:</span> <span id="fciActivePNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row highlight-actual"><span>Actual:</span> <span id="fciActiveCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento:</span> <span id="fciActivePNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
                 <div class="card complex-card card-cerrada">
                     <h3>FCI Cerrados</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido:</span> <span id="fciClosedInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Recuperado:</span> <span id="fciClosedCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance:</span> <span id="fciClosedPNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row spacer-row"><span>Recuperado:</span> <span id="fciClosedCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento:</span> <span id="fciClosedPNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
                 <div class="card complex-card card-total">
                     <h3>Resultado FCI Total</h3>
                     <div class="card-details">
                         <div class="detail-row"><span>Invertido Total:</span> <span id="fciTotalInvested">$0,00</span></div>
-                        <div class="detail-row"><span>Monto Total:</span> <span id="fciTotalCurrent">$0,00</span></div>
-                        <div class="detail-row highlight"><span>Balance Total:</span> <span id="fciTotalPNL" class="neutral">$0,00 (0,00%)</span></div>
+                        <div class="detail-row spacer-row"><span>Monto Total:</span> <span id="fciTotalCurrent">$0,00</span></div>
+                        <div class="detail-row highlight"><span>Rendimiento Total:</span> <span id="fciTotalPNL" class="neutral">$0,00 (0,00%)</span></div>
                     </div>
                 </div>
             </div>
@@ -435,31 +434,49 @@
                     <div class="search-container" style="flex: 1; margin-bottom: 0;">
                         <input type="text" id="searchScannerInput" placeholder="Buscar activo y tocar Enter..." autocomplete="off">
                     </div>
-                    <button id="toggleScannerViewBtn" class="btn-action" style="height: 48px;">Ver Fundamental</button>
+                    <button id="toggleScannerViewBtn" class="btn-action" style="height: 48px;">Ver Técnico</button>
                 </div>
-                <div id="scannerTableContainer" class="table-container">
-                    <h3>Análisis Técnico</h3>
+                
+                <div id="scannerFundContainer" class="table-container">
+                    <h3 style="color: #00f7ff; margin-bottom: 20px;">Análisis Fundamental</h3>
                     <table>
                         <thead>
                             <tr>
                                 <th>Ticker</th>
                                 <th>Precio USD</th>
-                                <th>RS Score</th>
-                                <th>Ratio Vol</th>
-                                <th>Dist. Mín. 52s</th>
-                                <th>Dist. Máx. 52s</th>
-                                <th>RSI 14</th>
-                                <th>Dist. EMA 200</th>
-                                <th>Dist. SMA 50</th>
+                                <th>PER <div class="tooltip">?<div class="tooltiptext">Años necesarios para recuperar la inversión.<br><br><b style="color:#00ff00">Barato:</b> < 15<br><b style="color:#ff0044">Caro/Burbuja:</b> > 25</div></div></th>
+                                <th>PER Est. <div class="tooltip">?<div class="tooltiptext">Proyección de P/E futuro.<br><br><b style="color:#00ff00">Crecimiento:</b> Si es menor al PER actual, se esperan mayores ganancias.</div></div></th>
+                                <th>BPA <div class="tooltip">?<div class="tooltiptext">Beneficio Por Acción.<br><br><b style="color:#00ff00">Comprar:</b> Positivo (>0). Refleja empresa que genera ganancias.</div></div></th>
+                                <th>P/B <div class="tooltip">?<div class="tooltiptext">Precio sobre Valor Contable.<br><br><b style="color:#00ff00">Subvaluada:</b> < 1.5<br><b style="color:#ff0044">Sobrevaluada:</b> > 3.5</div></div></th>
+                                <th>Div Yield <div class="tooltip">?<div class="tooltiptext">Rendimiento anual por dividendos.<br><br><b style="color:#00ff00">Atractivo:</b> > 3% anual. Ideal para ingresos pasivos.</div></div></th>
+                                <th>Beta <div class="tooltip">?<div class="tooltiptext">Volatilidad comparada contra el mercado.<br><br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff00ff">Agresiva:</b> > 1.2</div></div></th>
+                                <th>Market Cap <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en la bolsa.<br><br><b>Large:</b> > $10 Billones (Menos riesgo).<br><b>Small:</b> < $2 Billones (Más volátil, más potencial).</div></div></th>
                             </tr>
                         </thead>
-                        <tbody id="scannerTableResults"></tbody>
+                        <tbody id="scannerFundResults"></tbody>
                     </table>
                 </div>
-                <div id="scannerGridContainer" class="kpi-grid-container" style="display: none;">
-                    <h3 style="color: #00f7ff; margin-bottom: 20px;">Análisis Fundamental</h3>
-                    <div id="scannerGridResults" class="kpi-grid"></div>
+
+                <div id="scannerTechContainer" class="table-container" style="display: none;">
+                    <h3 style="color: #00f7ff; margin-bottom: 20px;">Análisis Técnico</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Precio USD</th>
+                                <th>RS Score <div class="tooltip">?<div class="tooltiptext">Fuerza relativa frente al mercado.<br><br><b style="color:#00ff00">Fuerte:</b> > 70 (Liderando)<br><b style="color:#ff0044">Débil:</b> < 50 (Rezagada)</div></div></th>
+                                <th>Ratio Vol <div class="tooltip">?<div class="tooltiptext">Volumen de hoy vs Promedio de 3 meses.<br><br><b style="color:#00ff00">Interés Fuerte:</b> > 1.2x<br><b style="color:#9ca3af">Normal:</b> ~ 1.0x</div></div></th>
+                                <th>Dist. Mín. 52s <div class="tooltip">?<div class="tooltiptext">Distancia al piso del último año.<br><br><b style="color:#00ff00">Soporte Cerca:</b> Valores cercanos al 0% indican que podría rebotar.</div></div></th>
+                                <th>Dist. Máx. 52s <div class="tooltip">?<div class="tooltiptext">Distancia al techo del último año.<br><br><b style="color:#ff0044">Resistencia Cerca:</b> Valores cercanos al 0% indican riesgo de corrección.</div></div></th>
+                                <th>RSI 14 <div class="tooltip">?<div class="tooltiptext">Mide la velocidad de los cambios de precio.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div></th>
+                                <th>Dist. EMA 200 <div class="tooltip">?<div class="tooltiptext">Tendencia Macro (Largo Plazo).<br><br><b style="color:#00ff00">Alcista:</b> > 0% (Arriba de la EMA)<br><b style="color:#ff0044">Bajista:</b> < 0% (Abajo de la EMA)</div></div></th>
+                                <th>Dist. SMA 50 <div class="tooltip">?<div class="tooltiptext">Tendencia Trimestral (Mediano Plazo).<br><br><b style="color:#00ff00">Alcista:</b> > 0%<br><b style="color:#ff0044">Bajista:</b> < 0%</div></div></th>
+                            </tr>
+                        </thead>
+                        <tbody id="scannerTechResults"></tbody>
+                    </table>
                 </div>
+
             </div>
             <div id="scannerDetailView" style="display: none;">
                 <button id="btnBackToScanner" class="btn-action" style="margin-bottom: 20px;">⬅ Volver al listado</button>

@@ -59,6 +59,13 @@ if (privacyToggleBtn) {
     });
 }
 
+// BOTÓN INICIO (LOGO SKYLINE)
+document.getElementById('logoSkyline')?.addEventListener('click', () => {
+    document.querySelectorAll(".tab-btn, .view-section").forEach(el => el.classList.remove("active")); 
+    document.querySelector('[data-target="globalView"]').classList.add("active"); 
+    document.getElementById("globalView").classList.add("active");
+});
+
 // MOTOR DE BÚSQUEDA INTELIGENTE
 export function matchSearch(text, searchStr) {
     if (!searchStr) return true;
@@ -373,12 +380,9 @@ historyResults.addEventListener("click", (e) => {
     }
 });
 
-// --- LÓGICA DE LA TABLA MERCADO EN VIVO CORREGIDA ---
 function renderMarketTable() {
     const sym = isUSD ? "u$s " : "$ "; 
     const search = document.getElementById("searchInput").value.toLowerCase();
-    
-    // Busca cuál es el botón de categoría que está seleccionado actualmente
     const activeCategory = document.querySelector(".categories .category.active")?.dataset.category || "all";
 
     marketResults.innerHTML = instruments.filter(i => {
@@ -395,12 +399,11 @@ function renderMarketTable() {
 document.getElementById("searchInput").addEventListener("keyup", renderMarketTable); 
 document.getElementById("btnCancelEdit").onclick = closeModal;
 
-// --- FILTROS DEL MERCADO EN VIVO (Conecta los botones) ---
 document.querySelectorAll(".categories .category").forEach(btn => {
     btn.addEventListener("click", () => {
         document.querySelectorAll(".categories .category").forEach(el => el.classList.remove("active"));
         btn.classList.add("active");
-        renderMarketTable(); // Filtra la tabla desde la memoria interna, sin consumir API
+        renderMarketTable(); 
     });
 });
 

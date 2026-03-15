@@ -6,12 +6,14 @@ const scannerListView = document.getElementById("scannerListView");
 const scannerDetailView = document.getElementById("scannerDetailView");
 const btnBackToScanner = document.getElementById("btnBackToScanner");
 const scannerDetailContent = document.getElementById("scannerDetailContent");
-const scannerTableContainer = document.getElementById("scannerTableContainer");
-const scannerGridContainer = document.getElementById("scannerGridContainer");
-const scannerTableResults = document.getElementById("scannerTableResults");
-const scannerGridResults = document.getElementById("scannerGridResults");
 
-let scannerViewMode = 'table'; 
+// Contenedores nuevos
+const scannerTechContainer = document.getElementById("scannerTechContainer");
+const scannerFundContainer = document.getElementById("scannerFundContainer");
+const scannerTechResults = document.getElementById("scannerTechResults");
+const scannerFundResults = document.getElementById("scannerFundResults");
+
+let scannerViewMode = 'fund'; // Default es fundamental ahora
 let hasLoaded = false;
 let scannerData = [];
 
@@ -19,7 +21,7 @@ const MI_API_TECNICA = "https://script.google.com/macros/s/AKfycbwzHoKNleP28QmAC
 
 export async function initScanner() {
     if (hasLoaded) return;
-    scannerTableResults.innerHTML = "<tr><td colspan='9'>Analizando el mercado masivamente... (Puede tardar unos segundos)</td></tr>";
+    scannerFundResults.innerHTML = "<tr><td colspan='9'>Analizando el mercado masivamente... (Puede tardar unos segundos)</td></tr>";
 
     try {
         const hardcodedTickers = ["SPY", "QQQ", "DIA", "AAPL", "MSFT", "NVDA", "AMZN", "META", "TSLA", "GOOGL", "VIST", "XOM", "CVX", "KO", "PEP", "MCD", "JNJ", "PFE", "V", "MA", "JPM", "BAC", "MELI", "BABA", "WMT", "PG", "DIS", "NFLX", "AMD", "INTC", "GGAL.BA", "YPFD.BA", "PAMP.BA"];
@@ -36,7 +38,7 @@ export async function initScanner() {
         hasLoaded = true;
         renderScanner();
     } catch (error) {
-        scannerTableResults.innerHTML = `<tr><td colspan='9' class='negative'>Error conectando a Yahoo. Refrescá la página.</td></tr>`;
+        scannerFundResults.innerHTML = `<tr><td colspan='9' class='negative'>Error conectando a Yahoo. Refrescá la página.</td></tr>`;
     }
 }
 
@@ -44,7 +46,12 @@ function renderScanner() {
     const search = searchScannerInput.value.toLowerCase().trim();
     let filtered = scannerData;
     if (search !== "") filtered = scannerData.filter(item => item.ticker.toLowerCase().includes(search));
-    if (scannerViewMode === 'table') buildTable(filtered); else buildGrid(filtered);
+    
+    if (scannerViewMode === 'tech') {
+        buildTechTable(filtered);
+    } else {
+        buildFundTable(filtered);
+    }
 }
 
 searchScannerInput.addEventListener("keyup", async (e) => {
@@ -67,12 +74,16 @@ searchScannerInput.addEventListener("keyup", async (e) => {
 });
 
 toggleScannerViewBtn.addEventListener("click", () => {
-    if (scannerViewMode === 'table') {
-        scannerViewMode = 'grid'; toggleScannerViewBtn.innerText = "Ver Técnico (Tabla)";
-        scannerTableContainer.style.display = "none"; scannerGridContainer.style.display = "block";
+    if (scannerViewMode === 'tech') {
+        scannerViewMode = 'fund'; 
+        toggleScannerViewBtn.innerText = "Ver Técnico";
+        scannerTechContainer.style.display = "none"; 
+        scannerFundContainer.style.display = "block";
     } else {
-        scannerViewMode = 'table'; toggleScannerViewBtn.innerText = "Ver Fundamental (Tarjetas)";
-        scannerGridContainer.style.display = "none"; scannerTableContainer.style.display = "block";
+        scannerViewMode = 'tech'; 
+        toggleScannerViewBtn.innerText = "Ver Fundamental";
+        scannerFundContainer.style.display = "none"; 
+        scannerTechContainer.style.display = "block";
     }
     renderScanner();
 });
@@ -88,6 +99,7 @@ function getTechColor(val, type) {
     if (type === 'volRatio') { if (num >= 1.2) return 'positive'; if (num < 0.8) return 'negative'; return 'neutral'; }
     return 'neutral';
 }
+
 function getFundColor(val, type) {
     if (val === "-") return 'neutral'; const num = parseFloat(val);
     if (type === 'pe' || type === 'fpe') { if (num < 0) return 'negative'; if (num < 15) return 'positive'; if (num > 25) return 'negative'; return 'warning'; }
@@ -97,43 +109,58 @@ function getFundColor(val, type) {
     return 'neutral';
 }
 
-function buildTable(data) {
-    scannerTableResults.innerHTML = "";
+// CONSTRUYE TABLA TÉCNICA
+function buildTechTable(data) {
+    scannerTechResults.innerHTML = "";
     if (data.length === 0) return;
-    scannerTableResults.innerHTML = data.map(item => {
+    scannerTechResults.innerHTML = data.map(item => {
         return `
             <tr class="scanner-row" data-ticker="${item.ticker}">
                 <td><strong>${item.ticker}</strong></td>
                 <td>u$s ${item.price}</td>
                 <td class="${getTechColor(item.rsScore, 'score')}" style="font-weight: bold;">${item.rsScore}</td>
-                <td class="${getTechColor(item.volRatio, 'volRatio')}">${item.volRatio}x</td>
+                <td class="${getTechColor(item.volRatio, 'volRatio')}">${item.volRatio !== '-' ? item.volRatio + 'x' : '-'}</td>
                 <td class="${getTechColor(item.distLow52, 'distLow')}">${item.distLow52 !== '-' ? '+' + item.distLow52 + '%' : '-'}</td>
                 <td class="${getTechColor(item.distHigh52, 'distHigh')}">${item.distHigh52 !== '-' ? item.distHigh52 + '%' : '-'}</td>
                 <td class="${getTechColor(item.rsi, 'rsi')}">${item.rsi}</td>
-                <td class="${getTechColor(item.sma200, 'trend')}">${item.sma200 > 0 ? '+' : ''}${item.sma200}%</td>
-                <td class="${getTechColor(item.sma50, 'trend')}">${item.sma50 > 0 ? '+' : ''}${item.sma50}%</td>
+                <td class="${getTechColor(item.sma200, 'trend')}">${item.sma200 !== '-' ? (item.sma200 > 0 ? '+' : '') + item.sma200 + '%' : '-'}</td>
+                <td class="${getTechColor(item.sma50, 'trend')}">${item.sma50 !== '-' ? (item.sma50 > 0 ? '+' : '') + item.sma50 + '%' : '-'}</td>
             </tr>
         `;
     }).join("");
 }
 
-function buildGrid(data) {
-    scannerGridResults.innerHTML = "";
+// CONSTRUYE TABLA FUNDAMENTAL (En vez de Tarjetas)
+function buildFundTable(data) {
+    scannerFundResults.innerHTML = "";
     if (data.length === 0) return;
-    scannerGridResults.innerHTML = data.map(item => {
-        const epsVal = parseFloat(item.eps); const fepsVal = parseFloat(item.feps);
+    scannerFundResults.innerHTML = data.map(item => {
+        const epsVal = parseFloat(item.eps);
         return `
-            <div class="kpi-card scanner-card" data-ticker="${item.ticker}">
-                <div class="kpi-header"><h4>${item.ticker}</h4><span>u$s ${item.price}</span></div>
-                <div class="kpi-row"><span>PER Actual</span><div class="indicator ${getFundColor(item.pe, 'pe')}">${item.pe}</div></div>
-                <div class="kpi-row"><span>PER Estimado</span><div class="indicator ${getFundColor(item.fpe, 'fpe')}">${item.fpe}</div></div>
-                <div class="kpi-row"><span>BPA Actual</span><div class="indicator ${item.eps !== '-' ? (epsVal > 0 ? 'positive' : 'negative') : 'neutral'}">u$s ${item.eps}</div></div>
-                <div class="kpi-row"><span>Precio / Libro</span><div class="indicator ${getFundColor(item.pb, 'pb')}">${item.pb}</div></div>
-                <div class="kpi-row"><span>Div Yield</span><div class="indicator ${getFundColor(item.divYield, 'div')}">${item.divYield}%</div></div>
-            </div>
+            <tr class="scanner-row" data-ticker="${item.ticker}">
+                <td><strong>${item.ticker}</strong></td>
+                <td>u$s ${item.price}</td>
+                <td class="${getFundColor(item.pe, 'pe')}">${item.pe || '-'}</td>
+                <td class="${getFundColor(item.fpe, 'fpe')}">${item.fpe || '-'}</td>
+                <td class="${item.eps !== '-' ? (epsVal > 0 ? 'positive' : 'negative') : 'neutral'}">${item.eps !== '-' ? 'u$s ' + item.eps : '-'}</td>
+                <td class="${getFundColor(item.pb, 'pb')}">${item.pb || '-'}</td>
+                <td class="${getFundColor(item.divYield, 'div')}">${item.divYield !== '-' ? item.divYield + '%' : '-'}</td>
+                <td class="${getFundColor(item.beta, 'beta')}">${item.beta || '-'}</td>
+                <td style="color:#00f7ff;">${item.mcap || item.marketCap || '-'}</td>
+            </tr>
         `;
     }).join("");
 }
+
+// INTERACCIÓN: Clic en cualquier fila abre el detalle
+document.getElementById("scannerTechResults")?.addEventListener("click", (e) => {
+    const row = e.target.closest('.scanner-row');
+    if (row && row.dataset.ticker) showAssetDetail(row.dataset.ticker);
+});
+document.getElementById("scannerFundResults")?.addEventListener("click", (e) => {
+    const row = e.target.closest('.scanner-row');
+    if (row && row.dataset.ticker) showAssetDetail(row.dataset.ticker);
+});
 
 // --- VISTA DETALLE CON LOS 14 KPIS RESTAURADOS ---
 function showAssetDetail(ticker) {
@@ -143,12 +170,12 @@ function showAssetDetail(ticker) {
     scannerListView.style.display = "none";
     scannerDetailView.style.display = "block";
 
+    // Lógica TRADINGVIEW LIBRE
     let tvTicker = item.ticker;
     if(tvTicker.includes(".BA")) {
         tvTicker = "BCBA:" + tvTicker.replace(".BA", "");
-    } else {
-        tvTicker = "NASDAQ:" + tvTicker; 
-    }
+    } 
+    // Si no es de Argentina, dejamos que TradingView resuelva el mercado solo (NASDAQ, NYSE, etc)
 
     scannerDetailContent.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
@@ -204,12 +231,12 @@ function showAssetDetail(ticker) {
                 <div class="kpi-grid">
                     
                     <div class="kpi-box">
-                        <span class="label">PER Actual (P/E) <div class="tooltip">?<div class="tooltiptext">Años necesarios para recuperar la inversión.<br><br><b style="color:#00ff00">Barato:</b> < 15<br><b style="color:#ff0044">Caro/Burbuja:</b> > 25</div></div></span>
+                        <span class="label">PER Actual <div class="tooltip">?<div class="tooltiptext">Años necesarios para recuperar la inversión.<br><br><b style="color:#00ff00">Barato:</b> < 15<br><b style="color:#ff0044">Caro/Burbuja:</b> > 25</div></div></span>
                         <span class="val ${getFundColor(item.pe, 'pe')}">${item.pe || '-'}</span>
                     </div>
 
                     <div class="kpi-box">
-                        <span class="label">PER Estimado <div class="tooltip">?<div class="tooltiptext">Proyección de P/E futuro.<br><br><b style="color:#00ff00">Crecimiento:</b> Si es menor al PER actual, se esperan mayores ganancias.</div></div></span>
+                        <span class="label">PER Est. <div class="tooltip">?<div class="tooltiptext">Proyección de P/E futuro.<br><br><b style="color:#00ff00">Crecimiento:</b> Si es menor al PER actual, se esperan mayores ganancias.</div></div></span>
                         <span class="val ${getFundColor(item.fpe, 'fpe')}">${item.fpe || '-'}</span>
                     </div>
 
@@ -269,13 +296,4 @@ function showAssetDetail(ticker) {
 btnBackToScanner.addEventListener("click", () => {
     scannerDetailView.style.display = "none";
     scannerListView.style.display = "block";
-});
-
-scannerTableResults.addEventListener("click", (e) => {
-    const row = e.target.closest('.scanner-row');
-    if (row && row.dataset.ticker) showAssetDetail(row.dataset.ticker);
-});
-scannerGridResults.addEventListener("click", (e) => {
-    const card = e.target.closest('.scanner-card');
-    if (card && card.dataset.ticker) showAssetDetail(card.dataset.ticker);
 });
