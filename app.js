@@ -33,19 +33,25 @@ export function getHistoricalMepRate(dateStr) {
     return rate ? parseFloat(rate.venta) : currentMepRate;
 }
 
-// --- MODO PRIVACIDAD ---
-export let isPrivacyMode = false;
+// --- MODO PRIVACIDAD (Con Memoria Local) ---
+export let isPrivacyMode = localStorage.getItem('skyline_privacy_mode') === 'true';
 export function obfuscate(text) { return isPrivacyMode ? "****" : text; }
 
 const privacyToggleBtn = document.getElementById("privacyToggleBtn");
+
+function updatePrivacyUI() {
+    if (privacyToggleBtn) privacyToggleBtn.innerText = isPrivacyMode ? "🙈" : "👁️";
+    if (isPrivacyMode) document.body.classList.add("privacy-mode");
+    else document.body.classList.remove("privacy-mode");
+}
+updatePrivacyUI(); 
+
 if (privacyToggleBtn) {
     privacyToggleBtn.addEventListener("click", () => {
         isPrivacyMode = !isPrivacyMode;
-        privacyToggleBtn.innerText = isPrivacyMode ? "🙈" : "👁️";
-        if (isPrivacyMode) document.body.classList.add("privacy-mode");
-        else document.body.classList.remove("privacy-mode");
+        localStorage.setItem('skyline_privacy_mode', isPrivacyMode); 
+        updatePrivacyUI();
         
-        // Refrescar vistas para aplicar ocultamiento
         renderPortfolio();
         renderHistory();
         renderFciPortfolio();
@@ -53,6 +59,7 @@ if (privacyToggleBtn) {
     });
 }
 
+// MOTOR DE BÚSQUEDA INTELIGENTE
 export function matchSearch(text, searchStr) {
     if (!searchStr) return true;
     const normalize = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -300,6 +307,7 @@ function renderPortfolio() {
     </tr>`).join("");
     document.getElementById("portfolioResults").innerHTML = html || "<tr><td colspan='7'>Sin activos en cartera</td></tr>";
 
+
     const dispActiveInv = isUSD ? activeInvestedUSD : activeInvestedARS; const dispActiveCur = isUSD ? activeCurrentUSD : activeCurrentARS; const dispActivePNL = dispActiveCur - dispActiveInv;
     document.getElementById("activeInvested").innerText = obfuscate(sym + formatMonto(dispActiveInv)); 
     document.getElementById("activeCurrent").innerText = obfuscate(sym + formatMonto(dispActiveCur)); 
@@ -365,12 +373,36 @@ historyResults.addEventListener("click", (e) => {
     }
 });
 
+// --- LÓGICA DE LA TABLA MERCADO EN VIVO CORREGIDA ---
 function renderMarketTable() {
-    const sym = isUSD ? "u$s " : "$ "; const search = document.getElementById("searchInput").value.toLowerCase();
-    marketResults.innerHTML = instruments.filter(i => i.symbol && i.symbol.toLowerCase().includes(search)).map(item => { const p = isUSD ? parseFloat(item.c) / currentMepRate : parseFloat(item.c); return `<tr><td>${item.symbol}</td><td>${sym}${formatMonto(p)}</td><td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td><td>${formatMonto(parseFloat(item.v))}</td><td>${formatMonto(parseFloat(item.px_bid))}</td><td>${formatMonto(parseFloat(item.px_ask))}</td></tr>`; }).join("");
+    const sym = isUSD ? "u$s " : "$ "; 
+    const search = document.getElementById("searchInput").value.toLowerCase();
+    
+    // Busca cuál es el botón de categoría que está seleccionado actualmente
+    const activeCategory = document.querySelector(".categories .category.active")?.dataset.category || "all";
+
+    marketResults.innerHTML = instruments.filter(i => {
+        if (!i.symbol) return false;
+        const matchSearch = i.symbol.toLowerCase().includes(search);
+        const matchCat = activeCategory === "all" || i.assetType === activeCategory;
+        return matchSearch && matchCat;
+    }).map(item => { 
+        const p = isUSD ? parseFloat(item.c) / currentMepRate : parseFloat(item.c); 
+        return `<tr><td>${item.symbol}</td><td>${sym}${formatMonto(p)}</td><td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td><td>${formatMonto(parseFloat(item.v))}</td><td>${formatMonto(parseFloat(item.px_bid))}</td><td>${formatMonto(parseFloat(item.px_ask))}</td></tr>`; 
+    }).join("");
 }
 
-document.getElementById("searchInput").addEventListener("keyup", renderMarketTable); document.getElementById("btnCancelEdit").onclick = closeModal;
+document.getElementById("searchInput").addEventListener("keyup", renderMarketTable); 
+document.getElementById("btnCancelEdit").onclick = closeModal;
+
+// --- FILTROS DEL MERCADO EN VIVO (Conecta los botones) ---
+document.querySelectorAll(".categories .category").forEach(btn => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".categories .category").forEach(el => el.classList.remove("active"));
+        btn.classList.add("active");
+        renderMarketTable(); // Filtra la tabla desde la memoria interna, sin consumir API
+    });
+});
 
 currencySwitch.addEventListener("change", (e) => { isUSD = e.target.checked; renderPortfolio(); renderHistory(); renderMarketTable(); renderFciPortfolio(); renderFciHistory(); });
 chartAssetFilter.addEventListener("change", renderPortfolio);
