@@ -1,4 +1,4 @@
-import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, renderGlobalPortfolio, matchSearch, obfuscate } from "./app.js";
+import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, formatMontoEntero, formatPrecio, renderGlobalPortfolio, matchSearch, obfuscate } from "./app.js";
 
 let fciData = [];
 let hasLoadedFci = false;
@@ -69,7 +69,7 @@ function renderFciTable() {
     const dataToRender = searchTerm === "" ? filtered.slice(0, 100) : filtered;
 
     fciResults.innerHTML = dataToRender.map(item => {
-        const formattedPrice = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(item.c);
+        const formattedPrice = formatPrecio(item.c);
         return `
             <tr class="fci-row">
                 <td><strong>${item.symbol}</strong></td>
@@ -239,8 +239,8 @@ export function renderFciPortfolio() {
             <td><strong>${h.ticker}</strong></td>
             <td><span style="font-size:12px; color:#9ca3af; padding:2px 6px; border:1px solid #374151; border-radius:4px;">${h.nativeSym === 'u$s ' ? 'USD' : 'ARS'}</span></td>
             <td>${obfuscate(h.qtyStr)}</td>
-            <td>${obfuscate(h.nativeSym + formatMonto(h.nativePPC))}</td>
-            <td>${h.nativeSym}${formatMonto(h.nativePrice)}</td>
+            <td>${obfuscate(h.nativeSym + formatPrecio(h.nativePPC))}</td>
+            <td>${h.nativeSym}${formatPrecio(h.nativePrice)}</td>
             <td>${obfuscate(sym + formatMonto(isUSD ? h.currentUSD : h.currentARS))}</td>
             <td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(isUSD ? h.pnlUSD : h.pnlARS))}</td>
             <td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>
@@ -252,25 +252,25 @@ export function renderFciPortfolio() {
     const dActInv = isUSD ? actInvUSD : actInvARS;
     const dActCur = isUSD ? actCurUSD : actCurARS;
     const dActPnl = dActCur - dActInv;
-    document.getElementById("fciActiveInvested").innerText = obfuscate(sym + formatMonto(dActInv));
-    document.getElementById("fciActiveCurrent").innerText = obfuscate(sym + formatMonto(dActCur));
-    document.getElementById("fciActivePNL").innerText = obfuscate(`${sym}${formatMonto(dActPnl)} (${(dActInv > 0 ? (dActPnl / dActInv * 100) : 0).toFixed(2)}%)`);
+    document.getElementById("fciActiveInvested").innerText = obfuscate(sym + formatMontoEntero(dActInv));
+    document.getElementById("fciActiveCurrent").innerText = obfuscate(sym + formatMontoEntero(dActCur));
+    document.getElementById("fciActivePNL").innerText = obfuscate(`${sym}${formatMontoEntero(dActPnl)} (${(dActInv > 0 ? (dActPnl / dActInv * 100) : 0).toFixed(2)}%)`);
     document.getElementById("fciActivePNL").className = dActPnl >= 0 ? "positive" : "negative";
 
     const dClsInv = isUSD ? clsInvUSD : clsInvARS;
     const dClsCur = isUSD ? clsProUSD : clsProARS;
     const dClsPnl = dClsCur - dClsInv;
-    document.getElementById("fciClosedInvested").innerText = obfuscate(sym + formatMonto(dClsInv));
-    document.getElementById("fciClosedCurrent").innerText = obfuscate(sym + formatMonto(dClsCur));
-    document.getElementById("fciClosedPNL").innerText = obfuscate(`${sym}${formatMonto(dClsPnl)} (${(dClsInv > 0 ? (dClsPnl / dClsInv * 100) : 0).toFixed(2)}%)`);
+    document.getElementById("fciClosedInvested").innerText = obfuscate(sym + formatMontoEntero(dClsInv));
+    document.getElementById("fciClosedCurrent").innerText = obfuscate(sym + formatMontoEntero(dClsCur));
+    document.getElementById("fciClosedPNL").innerText = obfuscate(`${sym}${formatMontoEntero(dClsPnl)} (${(dClsInv > 0 ? (dClsPnl / dClsInv * 100) : 0).toFixed(2)}%)`);
     document.getElementById("fciClosedPNL").className = dClsPnl >= 0 ? "positive" : "negative";
 
     const dTotInv = dActInv + dClsInv;
     const dTotCur = dActCur + dClsCur;
     const dTotPnl = dTotCur - dTotInv;
-    document.getElementById("fciTotalInvested").innerText = obfuscate(sym + formatMonto(dTotInv));
-    document.getElementById("fciTotalCurrent").innerText = obfuscate(sym + formatMonto(dTotCur));
-    document.getElementById("fciTotalPNL").innerText = obfuscate(`${sym}${formatMonto(dTotPnl)} (${(dTotInv > 0 ? (dTotPnl / dTotInv * 100) : 0).toFixed(2)}%)`);
+    document.getElementById("fciTotalInvested").innerText = obfuscate(sym + formatMontoEntero(dTotInv));
+    document.getElementById("fciTotalCurrent").innerText = obfuscate(sym + formatMontoEntero(dTotCur));
+    document.getElementById("fciTotalPNL").innerText = obfuscate(`${sym}${formatMontoEntero(dTotPnl)} (${(dTotInv > 0 ? (dTotPnl / dTotInv * 100) : 0).toFixed(2)}%)`);
     document.getElementById("fciTotalPNL").className = dTotPnl >= 0 ? "positive" : "negative";
 
     renderGlobalPortfolio({ actInvARS, actInvUSD, actCurARS, actCurUSD, clsInvARS, clsInvUSD, clsProARS, clsProUSD }, fciHoldingsArr, fciTransactions);
@@ -288,7 +288,7 @@ export function renderFciHistory() {
             <td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Suscripción':'Rescate'}</td>
             <td>${tx.currency}</td>
             <td>${obfuscate(formatMonto(tx.qty))}</td>
-            <td>${obfuscate(nativeSym + formatMonto(tx.price))}</td>
+            <td>${obfuscate(nativeSym + formatPrecio(tx.price))}</td>
             <td>
                 <div class="action-buttons">
                     <button class="btn-edit" data-id="${tx.id}" onclick="editarFciTx('${tx.id}')">Editar</button>

@@ -12,6 +12,8 @@ const tickerSuggestions = document.getElementById("tickerSuggestions");
 const portfolioResults = document.getElementById("portfolioResults");
 const historyResults = document.getElementById("historyResults");
 const currencySwitch = document.getElementById("currencySwitch");
+const labelARS = document.getElementById("labelARS"); // <-- NUEVO
+const labelUSD = document.getElementById("labelUSD"); // <-- NUEVO
 const mepRateText = document.getElementById("mepRateText");
 const chartAssetFilter = document.getElementById("chartAssetFilter");
 const globalChartAssetFilter = document.getElementById("globalChartAssetFilter");
@@ -26,14 +28,28 @@ export let bolsaHoldingsArr = [];
 export let transactions = JSON.parse(localStorage.getItem('bolsa_transactions')) || [];
 export let livePricesMap = {}; 
 
-export function formatMonto(num) { return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num || 0); }
+export function formatMonto(num) { 
+    return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num || 0); 
+}
+export function formatMontoEntero(num) {
+    return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(parseFloat(num) || 0);
+}
+export function formatPrecio(val, maxDec = 2) {
+    const num = parseFloat(val);
+    if (isNaN(num)) return "0";
+    if (num % 1 === 0) {
+        return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(num);
+    } else {
+        return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: maxDec }).format(num);
+    }
+}
+
 export function getHistoricalMepRate(dateStr) {
     if (!historicalMepRates.length) return currentMepRate;
     const rate = historicalMepRates.find(d => d.fecha <= dateStr);
     return rate ? parseFloat(rate.venta) : currentMepRate;
 }
 
-// --- MODO PRIVACIDAD (Con Memoria Local) ---
 export let isPrivacyMode = localStorage.getItem('skyline_privacy_mode') === 'true';
 export function obfuscate(text) { return isPrivacyMode ? "****" : text; }
 
@@ -59,14 +75,12 @@ if (privacyToggleBtn) {
     });
 }
 
-// BOTÓN INICIO (LOGO SKYLINE)
 document.getElementById('logoSkyline')?.addEventListener('click', () => {
     document.querySelectorAll(".tab-btn, .view-section").forEach(el => el.classList.remove("active")); 
     document.querySelector('[data-target="globalView"]').classList.add("active"); 
     document.getElementById("globalView").classList.add("active");
 });
 
-// MOTOR DE BÚSQUEDA INTELIGENTE
 export function matchSearch(text, searchStr) {
     if (!searchStr) return true;
     const normalize = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -94,26 +108,26 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     const actCur = isUSD ? (b.actCurUSD + fci.actCurUSD) : (b.actCurARS + fci.actCurARS);
     const actPnl = actCur - actInv; const actPct = actInv > 0 ? (actPnl / actInv) * 100 : 0;
     
-    document.getElementById("globalActiveInvested").innerText = obfuscate(sym + formatMonto(actInv));
-    document.getElementById("globalActiveCurrent").innerText = obfuscate(sym + formatMonto(actCur));
-    document.getElementById("globalActivePNL").innerText = obfuscate(`${sym}${formatMonto(actPnl)} (${actPct.toFixed(2)}%)`);
+    document.getElementById("globalActiveInvested").innerText = obfuscate(sym + formatMontoEntero(actInv));
+    document.getElementById("globalActiveCurrent").innerText = obfuscate(sym + formatMontoEntero(actCur));
+    document.getElementById("globalActivePNL").innerText = obfuscate(`${sym}${formatMontoEntero(actPnl)} (${actPct.toFixed(2)}%)`);
     document.getElementById("globalActivePNL").className = actPnl >= 0 ? "positive" : "negative";
 
     const clsInv = isUSD ? (b.clsInvUSD + fci.clsInvUSD) : (b.clsInvARS + fci.clsInvARS);
     const clsCur = isUSD ? (b.clsProUSD + fci.clsProUSD) : (b.clsProARS + fci.clsProARS);
     const clsPnl = clsCur - clsInv; const clsPct = clsInv > 0 ? (clsPnl / clsInv) * 100 : 0;
     
-    document.getElementById("globalClosedInvested").innerText = obfuscate(sym + formatMonto(clsInv));
-    document.getElementById("globalClosedCurrent").innerText = obfuscate(sym + formatMonto(clsCur));
-    document.getElementById("globalClosedPNL").innerText = obfuscate(`${sym}${formatMonto(clsPnl)} (${clsPct.toFixed(2)}%)`);
+    document.getElementById("globalClosedInvested").innerText = obfuscate(sym + formatMontoEntero(clsInv));
+    document.getElementById("globalClosedCurrent").innerText = obfuscate(sym + formatMontoEntero(clsCur));
+    document.getElementById("globalClosedPNL").innerText = obfuscate(`${sym}${formatMontoEntero(clsPnl)} (${clsPct.toFixed(2)}%)`);
     document.getElementById("globalClosedPNL").className = clsPnl >= 0 ? "positive" : "negative";
 
     const totInv = actInv + clsInv; const totCur = actCur + clsCur;
     const totPnl = totCur - totInv; const totPct = totInv > 0 ? (totPnl / totInv) * 100 : 0;
     
-    document.getElementById("globalTotalInvested").innerText = obfuscate(sym + formatMonto(totInv));
-    document.getElementById("globalTotalCurrent").innerText = obfuscate(sym + formatMonto(totCur));
-    document.getElementById("globalTotalPNL").innerText = obfuscate(`${sym}${formatMonto(totPnl)} (${totPct.toFixed(2)}%)`);
+    document.getElementById("globalTotalInvested").innerText = obfuscate(sym + formatMontoEntero(totInv));
+    document.getElementById("globalTotalCurrent").innerText = obfuscate(sym + formatMontoEntero(totCur));
+    document.getElementById("globalTotalPNL").innerText = obfuscate(`${sym}${formatMontoEntero(totPnl)} (${totPct.toFixed(2)}%)`);
     document.getElementById("globalTotalPNL").className = totPnl >= 0 ? "positive" : "negative";
 
     let combinedHoldings = [...bolsaHoldingsArr, ...lastFciHoldings];
@@ -128,8 +142,8 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
         return `<tr>
             <td><strong>${h.ticker}</strong> <span style="font-size:10px; color:#9ca3af; border:1px solid #374151; padding:2px; border-radius:4px; margin-left:5px;">${h.tag}</span></td>
             <td>${obfuscate(h.qtyStr)}</td>
-            <td>${obfuscate(h.nativeSym + formatMonto(h.nativePPC))}</td>
-            <td>${h.nativeSym}${formatMonto(h.nativePrice)}</td>
+            <td>${obfuscate(h.nativeSym + formatPrecio(h.nativePPC))}</td>
+            <td>${h.nativeSym}${formatPrecio(h.nativePrice)}</td>
             <td>${obfuscate(sym + formatMonto(dispCur))}</td>
             <td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(dispPnl))}</td>
             <td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>
@@ -142,10 +156,53 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     let pnlPcts = combinedHoldings.map(h => h.pnlPct);
     let colors = pnlPcts.map(p => p >= 0 ? '#00ff00' : '#ff0044');
 
-    if (globalPieChartInstance) { globalPieChartInstance.data.labels = labels; globalPieChartInstance.data.datasets[0].data = values; globalPieChartInstance.update(); } 
-    else { globalPieChartInstance = new Chart(document.getElementById('globalPieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { plugins: { legend: { position: 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
-    if (globalBarChartInstance) { globalBarChartInstance.data.labels = labels; globalBarChartInstance.data.datasets[0].data = pnlPcts; globalBarChartInstance.data.datasets[0].backgroundColor = colors; globalBarChartInstance.update(); } 
-    else { globalBarChartInstance = new Chart(document.getElementById('globalBarChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors }] }, options: { indexAxis: 'y', plugins: { legend: { display: false }, datalabels: { color: '#fff', formatter: v => v.toFixed(1) + '%' } } } }); }
+    if (globalPieChartInstance) { 
+        globalPieChartInstance.data.labels = labels; 
+        globalPieChartInstance.data.datasets[0].data = values; 
+        globalPieChartInstance.update(); 
+    } else { 
+        globalPieChartInstance = new Chart(document.getElementById('globalPieChart'), { 
+            type: 'doughnut', 
+            plugins: [ChartDataLabels], 
+            data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, 
+            options: { 
+                plugins: { 
+                    tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } },
+                    legend: { position: 'right', labels: {color: '#fff'} }, 
+                    datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } 
+                } 
+            } 
+        }); 
+    }
+    
+    if (globalBarChartInstance) { 
+        globalBarChartInstance.data.labels = labels; 
+        globalBarChartInstance.data.datasets[0].data = pnlPcts; 
+        globalBarChartInstance.data.datasets[0].backgroundColor = colors; 
+        globalBarChartInstance.update(); 
+    } else { 
+        globalBarChartInstance = new Chart(document.getElementById('globalBarChart'), { 
+            type: 'bar', 
+            plugins: [ChartDataLabels], 
+            data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, 
+            options: { 
+                indexAxis: 'y', 
+                scales: { 
+                    y: { ticks: { autoSkip: false }, grid: { display: false } },
+                    x: { grid: { color: '#1f2937' } }
+                },
+                plugins: { 
+                    legend: { display: false }, 
+                    datalabels: { 
+                        color: '#fff', 
+                        font: { size: 11, weight: 'bold' }, 
+                        display: function(ctx) { return ctx.chart.data.labels.length <= 12; }, 
+                        formatter: v => v.toFixed(1) + '%' 
+                    } 
+                } 
+            } 
+        }); 
+    }
 
     let normalizedFciTxs = lastFciTxs.map(tx => {
         let txMep = getHistoricalMepRate(tx.date);
@@ -306,8 +363,8 @@ function renderPortfolio() {
     let html = filteredBolsa.map(h => `<tr>
         <td><strong>${h.ticker}</strong></td>
         <td>${obfuscate(h.qtyStr)}</td>
-        <td>${obfuscate(sym + formatMonto(isUSD ? h.nativePPC/currentMepRate : h.nativePPC))}</td>
-        <td>${sym}${formatMonto(isUSD ? h.nativePrice/currentMepRate : h.nativePrice)}</td>
+        <td>${obfuscate(sym + formatPrecio(isUSD ? h.nativePPC/currentMepRate : h.nativePPC))}</td>
+        <td>${sym}${formatPrecio(isUSD ? h.nativePrice/currentMepRate : h.nativePrice)}</td>
         <td>${obfuscate(sym + formatMonto(isUSD ? h.currentUSD : h.currentARS))}</td>
         <td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(isUSD ? h.pnlUSD : h.pnlARS))}</td>
         <td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>
@@ -316,21 +373,21 @@ function renderPortfolio() {
 
 
     const dispActiveInv = isUSD ? activeInvestedUSD : activeInvestedARS; const dispActiveCur = isUSD ? activeCurrentUSD : activeCurrentARS; const dispActivePNL = dispActiveCur - dispActiveInv;
-    document.getElementById("activeInvested").innerText = obfuscate(sym + formatMonto(dispActiveInv)); 
-    document.getElementById("activeCurrent").innerText = obfuscate(sym + formatMonto(dispActiveCur)); 
-    document.getElementById("activePNL").innerText = obfuscate(`${sym}${formatMonto(dispActivePNL)} (${(dispActiveInv > 0 ? (dispActivePNL / dispActiveInv * 100) : 0).toFixed(2)}%)`); 
+    document.getElementById("activeInvested").innerText = obfuscate(sym + formatMontoEntero(dispActiveInv)); 
+    document.getElementById("activeCurrent").innerText = obfuscate(sym + formatMontoEntero(dispActiveCur)); 
+    document.getElementById("activePNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispActivePNL)} (${(dispActiveInv > 0 ? (dispActivePNL / dispActiveInv * 100) : 0).toFixed(2)}%)`); 
     document.getElementById("activePNL").className = dispActivePNL >= 0 ? "positive" : "negative";
 
     const dispClosedInv = isUSD ? closedInvestedUSD : closedInvestedARS; const dispClosedCur = isUSD ? closedProceedsUSD : closedProceedsARS; const dispClosedPNL = dispClosedCur - dispClosedInv;
-    document.getElementById("closedInvested").innerText = obfuscate(sym + formatMonto(dispClosedInv)); 
-    document.getElementById("closedCurrent").innerText = obfuscate(sym + formatMonto(dispClosedCur)); 
-    document.getElementById("closedPNL").innerText = obfuscate(`${sym}${formatMonto(dispClosedPNL)} (${(dispClosedInv > 0 ? (dispClosedPNL / dispClosedInv * 100) : 0).toFixed(2)}%)`); 
+    document.getElementById("closedInvested").innerText = obfuscate(sym + formatMontoEntero(dispClosedInv)); 
+    document.getElementById("closedCurrent").innerText = obfuscate(sym + formatMontoEntero(dispClosedCur)); 
+    document.getElementById("closedPNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispClosedPNL)} (${(dispClosedInv > 0 ? (dispClosedPNL / dispClosedInv * 100) : 0).toFixed(2)}%)`); 
     document.getElementById("closedPNL").className = dispClosedPNL >= 0 ? "positive" : "negative";
 
     const dispTotalInv = dispActiveInv + dispClosedInv; const dispTotalCur = dispActiveCur + dispClosedCur; const dispTotalPNL = dispTotalCur - dispTotalInv;
-    document.getElementById("totalInvested").innerText = obfuscate(sym + formatMonto(dispTotalInv)); 
-    document.getElementById("totalCurrent").innerText = obfuscate(sym + formatMonto(dispTotalCur)); 
-    document.getElementById("totalPNL").innerText = obfuscate(`${sym}${formatMonto(dispTotalPNL)} (${(dispTotalInv > 0 ? (dispTotalPNL / dispTotalInv * 100) : 0).toFixed(2)}%)`); 
+    document.getElementById("totalInvested").innerText = obfuscate(sym + formatMontoEntero(dispTotalInv)); 
+    document.getElementById("totalCurrent").innerText = obfuscate(sym + formatMontoEntero(dispTotalCur)); 
+    document.getElementById("totalPNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispTotalPNL)} (${(dispTotalInv > 0 ? (dispTotalPNL / dispTotalInv * 100) : 0).toFixed(2)}%)`); 
     document.getElementById("totalPNL").className = dispTotalPNL >= 0 ? "positive" : "negative";
 
     updateCharts(chartLabels, chartValues, chartPnlPct, chartColors);
@@ -345,10 +402,53 @@ toggleNominal.addEventListener("change", applyChartVisibility); togglePct.addEve
 globalToggleNominal.addEventListener("change", applyGlobalChartVisibility); globalTogglePct.addEventListener("change", applyGlobalChartVisibility);
 
 async function updateCharts(labels, values, pnlPcts, colors) {
-    if (pieChartInstance) { pieChartInstance.data.labels = labels; pieChartInstance.data.datasets[0].data = values; pieChartInstance.update(); } 
-    else { pieChartInstance = new Chart(document.getElementById('pieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { plugins: { legend: { position: 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
-    if (barChartInstance) { barChartInstance.data.labels = labels; barChartInstance.data.datasets[0].data = pnlPcts; barChartInstance.data.datasets[0].backgroundColor = colors; barChartInstance.update(); } 
-    else { barChartInstance = new Chart(document.getElementById('barChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors }] }, options: { indexAxis: 'y', plugins: { legend: { display: false }, datalabels: { color: '#fff', formatter: v => v.toFixed(1) + '%' } } } }); }
+    if (pieChartInstance) { 
+        pieChartInstance.data.labels = labels; 
+        pieChartInstance.data.datasets[0].data = values; 
+        pieChartInstance.update(); 
+    } else { 
+        pieChartInstance = new Chart(document.getElementById('pieChart'), { 
+            type: 'doughnut', 
+            plugins: [ChartDataLabels], 
+            data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, 
+            options: { 
+                plugins: { 
+                    tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } },
+                    legend: { position: 'right', labels: {color: '#fff'} }, 
+                    datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } 
+                } 
+            } 
+        }); 
+    }
+    
+    if (barChartInstance) { 
+        barChartInstance.data.labels = labels; 
+        barChartInstance.data.datasets[0].data = pnlPcts; 
+        barChartInstance.data.datasets[0].backgroundColor = colors; 
+        barChartInstance.update(); 
+    } else { 
+        barChartInstance = new Chart(document.getElementById('barChart'), { 
+            type: 'bar', 
+            plugins: [ChartDataLabels], 
+            data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, // MaxBar: evita deformarse
+            options: { 
+                indexAxis: 'y', 
+                scales: { 
+                    y: { ticks: { autoSkip: false }, grid: { display: false } },
+                    x: { grid: { color: '#1f2937' } }
+                },
+                plugins: { 
+                    legend: { display: false }, 
+                    datalabels: { 
+                        color: '#fff', 
+                        font: { size: 11, weight: 'bold' }, 
+                        display: function(ctx) { return ctx.chart.data.labels.length <= 12; }, 
+                        formatter: v => v.toFixed(1) + '%' 
+                    } 
+                } 
+            } 
+        }); 
+    }
     const filterVal = document.getElementById("chartAssetFilter").value; const filteredTxs = filterVal === 'ALL' ? [...transactions] : transactions.filter(t => t.ticker === filterVal);
     try { lineChartInstance = await drawHistoricalChart(filteredTxs, lineChartInstance, isUSD, currentMepRate, historicalMepRates, livePricesMap, 'lineChart'); applyChartVisibility(); } catch (error) {}
 }
@@ -363,7 +463,7 @@ function renderHistory() {
         <td><strong>${tx.ticker}</strong></td>
         <td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Compra':'Venta'}</td>
         <td>${obfuscate(tx.qty)}</td>
-        <td>${obfuscate(sym + formatMonto(tx.price))}</td>
+        <td>${obfuscate(sym + formatPrecio(tx.price))}</td>
         <td>${obfuscate(sym + formatMonto(tx.commission))}</td>
         <td><div class="action-buttons"><button class="btn-edit" data-id="${tx.id}">Editar</button><button class="btn-delete" data-id="${tx.id}">X</button></div></td>
     </tr>`).join("");
@@ -392,7 +492,14 @@ function renderMarketTable() {
         return matchSearch && matchCat;
     }).map(item => { 
         const p = isUSD ? parseFloat(item.c) / currentMepRate : parseFloat(item.c); 
-        return `<tr><td>${item.symbol}</td><td>${sym}${formatMonto(p)}</td><td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td><td>${formatMonto(parseFloat(item.v))}</td><td>${formatMonto(parseFloat(item.px_bid))}</td><td>${formatMonto(parseFloat(item.px_ask))}</td></tr>`; 
+        return `<tr>
+            <td>${item.symbol}</td>
+            <td>${sym}${formatPrecio(p)}</td>
+            <td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td>
+            <td>${formatMontoEntero(parseFloat(item.v))}</td>
+            <td>${formatPrecio(parseFloat(item.px_bid))}</td>
+            <td>${formatPrecio(parseFloat(item.px_ask))}</td>
+        </tr>`; 
     }).join("");
 }
 
@@ -407,7 +514,27 @@ document.querySelectorAll(".categories .category").forEach(btn => {
     });
 });
 
-currencySwitch.addEventListener("change", (e) => { isUSD = e.target.checked; renderPortfolio(); renderHistory(); renderMarketTable(); renderFciPortfolio(); renderFciHistory(); });
+// --- LÓGICA DEL BOTÓN DE MONEDA ARS/USD ---
+currencySwitch.addEventListener("change", (e) => { 
+    isUSD = e.target.checked; 
+    
+    // Cambia el color de la palabra ARS y USD
+    if (isUSD) {
+        labelARS.classList.remove("active-currency");
+        labelUSD.classList.add("active-currency");
+    } else {
+        labelARS.classList.add("active-currency");
+        labelUSD.classList.remove("active-currency");
+    }
+
+    // Refresca la vista
+    renderPortfolio(); 
+    renderHistory(); 
+    renderMarketTable(); 
+    renderFciPortfolio(); 
+    renderFciHistory(); 
+});
+
 chartAssetFilter.addEventListener("change", renderPortfolio);
 globalChartAssetFilter.addEventListener("change", renderGlobalPortfolio);
 
