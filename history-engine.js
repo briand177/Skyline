@@ -1,10 +1,9 @@
-// history-engine.js
+import { CONFIG } from "./config.js";
 
 const historicalPricesCache = {};
 let lastFetchTime = 0;
 
-// Utilidad para evitar que un proxy caído bloquee la página por 15 segundos
-async function fetchWithTimeout(url, options = {}, timeout = 4000) {
+async function fetchWithTimeout(url, options = {}, timeout = 5000) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
@@ -18,13 +17,14 @@ async function fetchWithTimeout(url, options = {}, timeout = 4000) {
 }
 
 export async function drawHistoricalChart(transactions, lineChartInstance, isUSD, currentMepRate, historicalMepRates, livePricesMap, canvasId = 'lineChart') {
-    if (!transactions || transactions.length === 0) {
-        if (lineChartInstance) lineChartInstance.destroy();
-        return null;
-    }
+    
+    // DESTRUCCIÓN SEGURA SIEMPRE AL INICIO DE LA FUNCIÓN
+    const existingChart = Chart.getChart(canvasId);
+    if (existingChart) existingChart.destroy();
+
+    if (!transactions || transactions.length === 0) return null;
 
     const sym = isUSD ? "u$s " : "$ ";
-    
     const sortedTxs = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
     const firstDateStr = sortedTxs[0].date;
     const firstDate = new Date(`${firstDateStr}T12:00:00`); 
@@ -60,48 +60,40 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
     }
 
     async function fetchYahoo(tickerSymbol) {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${tickerSymbol}?interval=1d&range=${range}&_=${Date.now()}`;
+        const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${tickerSymbol}?interval=1d&range=${range}&_=${Date.now()}`;
+        const proxyUrl = `${CONFIG.PROXY_URL}${encodeURIComponent(targetUrl)}`;
         
-        // Uso los proxies más veloces primero. Codetabs y AllOrigins suelen ser los mejores.
-        const proxies = [
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            `https://corsproxy.io/?${encodeURIComponent(url)}`
-        ];
+        try {
+            const res = await fetchWithTimeout(proxyUrl, {}, 5000);
+            if (!res.ok) return null; 
+            const json = await res.json();
+            if (!json.chart || !json.chart.result) return null; 
 
-        for (let proxyURL of proxies) {
-            try {
-                const res = await fetchWithTimeout(proxyURL, {}, 3500); 
-                if (!res.ok) continue; 
-                const json = await res.json();
-                if (!json.chart || !json.chart.result) continue; // Si la data viene mal armada, paso de proxy
-
-                const timestamps = json.chart.result[0].timestamp;
-                const closePrices = json.chart.result[0].indicators.quote[0].close;
-                
-                let result = {};
-                for (let i = 0; i < timestamps.length; i++) {
-                    if (closePrices[i] !== null) {
-                        const dateObj = new Date(timestamps[i] * 1000);
-                        result[dateObj.toISOString().split('T')[0]] = closePrices[i];
-                    }
+            const timestamps = json.chart.result[0].timestamp;
+            const closePrices = json.chart.result[0].indicators.quote[0].close;
+            
+            let result = {};
+            for (let i = 0; i < timestamps.length; i++) {
+                if (closePrices[i] !== null) {
+                    const dateObj = new Date(timestamps[i] * 1000);
+                    result[dateObj.toISOString().split('T')[0]] = closePrices[i];
                 }
-                return Object.keys(result).length > 0 ? result : null;
-            } catch (e) {
-                // Timeout atrapado silenciosamente, pasa al siguiente proxy
             }
+            return Object.keys(result).length > 0 ? result : null;
+        } catch (e) {
+            return null;
         }
-        return null; 
     }
 
     const now = Date.now();
     const missingTickers = uniqueTickers.filter(t => !historicalPricesCache[t] || Object.keys(historicalPricesCache[t]).length === 0);
     
-    // MAGIA DE PARALELISMO: Promise.all dispara todos los fetch al mismo tiempo
     if (missingTickers.length > 0 || now - lastFetchTime > 3600000) { 
-        await Promise.all(uniqueTickers.map(async (ticker) => {
-            if (!missingTickers.includes(ticker) && (now - lastFetchTime <= 3600000)) return;
+        
+        // FILTRO SILENCIOSO: Evitamos mandar los Fondos Comunes a Yahoo para no ver el Error 404
+        const validTickersForYahoo = missingTickers.filter(t => !t.includes(" - ") && !t.includes("Clase"));
 
+        await Promise.all(validTickersForYahoo.map(async (ticker) => {
             let tickerBA = ticker.includes(".BA") ? ticker : `${ticker}.BA`;
             let tickerUS = ticker.replace(".BA", "");
             
@@ -273,33 +265,26 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
         progressPNLPct.push({ x: dateStr, y: plotPct });
     }
 
-    if (lineChartInstance) {
-        lineChartInstance.data.datasets[0].data = progressPNL;
-        lineChartInstance.data.datasets[1].data = progressPNLPct;
-        lineChartInstance.update();
-        return lineChartInstance;
-    } else {
-        const ctx = document.getElementById(canvasId);
-        if(!ctx) return null;
-        
-        return new Chart(ctx, {
-            type: 'line',
-            data: { 
-                datasets: [
-                    { label: 'P/L Nominal', data: progressPNL, borderColor: '#00f7ff', backgroundColor: 'rgba(0, 247, 255, 0.05)', fill: true, tension: 0.2, pointRadius: 0, borderWidth: 1.5, yAxisID: 'y' }, 
-                    { label: 'Rentabilidad %', data: progressPNLPct, borderColor: '#ff00ff', borderDash: [], tension: 0.2, pointRadius: 0, borderWidth: 1.5, yAxisID: 'y1' }
-                ] 
-            },
-            options: { 
-                responsive: true,
-                interaction: { mode: 'index', intersect: false },
-                scales: { 
-                    x: { type: 'time', time: { unit: 'month', tooltipFormat: 'dd MMM yyyy' }, grid: { display: false } },
-                    y: { type: 'linear', position: 'left', grid: { color: '#1f2937' }, ticks: { callback: v => sym + new Intl.NumberFormat('es-AR').format(v) } }, 
-                    y1: { type: 'linear', position: 'right', grid: { display: false }, ticks: { callback: v => v.toFixed(2) + '%' } } 
-                }, 
-                plugins: { datalabels: { display: false } } 
-            }
-        });
-    }
+    const ctx = document.getElementById(canvasId);
+    if(!ctx) return null;
+    
+    return new Chart(ctx, {
+        type: 'line',
+        data: { 
+            datasets: [
+                { label: 'P/L Nominal', data: progressPNL, borderColor: '#00f7ff', backgroundColor: 'rgba(0, 247, 255, 0.05)', fill: true, tension: 0.2, pointRadius: 0, borderWidth: 1.5, yAxisID: 'y' }, 
+                { label: 'Rentabilidad %', data: progressPNLPct, borderColor: '#ff00ff', borderDash: [], tension: 0.2, pointRadius: 0, borderWidth: 1.5, yAxisID: 'y1' }
+            ] 
+        },
+        options: { 
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            scales: { 
+                x: { type: 'time', time: { unit: 'month', tooltipFormat: 'dd MMM yyyy' }, grid: { display: false } },
+                y: { type: 'linear', position: 'left', grid: { color: '#1f2937' }, ticks: { callback: v => sym + new Intl.NumberFormat('es-AR').format(v) } }, 
+                y1: { type: 'linear', position: 'right', grid: { display: false }, ticks: { callback: v => v.toFixed(2) + '%' } } 
+            }, 
+            plugins: { datalabels: { display: false } } 
+        }
+    });
 }

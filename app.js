@@ -230,7 +230,6 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
 
     const filteredTxs = currentFilter === 'ALL' ? combinedTxs : combinedTxs.filter(t => t.ticker === currentFilter);
     
-    // CARGA ASÍNCRONA: No bloquea la interfaz de usuario
     drawHistoricalChart(filteredTxs, globalLineChartInstance, isUSD, currentMepRate, historicalMepRates, globalPricesMap, 'globalLineChart')
         .then(chart => {
             if(chart) {
@@ -463,7 +462,6 @@ async function updateCharts(labels, values, pnlPcts, colors) {
     }
     const filterVal = document.getElementById("chartAssetFilter").value; const filteredTxs = filterVal === 'ALL' ? [...transactions] : transactions.filter(t => t.ticker === filterVal);
     
-    // CARGA ASÍNCRONA: Desacoplamos el gráfico para que no bloquee la interfaz
     drawHistoricalChart(filteredTxs, lineChartInstance, isUSD, currentMepRate, historicalMepRates, livePricesMap, 'lineChart')
         .then(chart => {
             if(chart) {

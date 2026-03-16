@@ -442,6 +442,7 @@
                     <div class="search-container" style="flex: 1; margin-bottom: 0;">
                         <input type="text" id="searchScannerInput" placeholder="Buscar activo y tocar Enter..." autocomplete="off">
                     </div>
+                    <button id="btnRefreshScanner" class="btn-action" style="height: 48px; margin-right: 10px;" title="Actualiza datos fundamentales y técnicos">🔄 Refrescar Datos</button>
                     <button id="toggleScannerViewBtn" class="btn-action" style="height: 48px;">Ver Técnico</button>
                 </div>
                 
@@ -451,14 +452,17 @@
                         <thead>
                             <tr>
                                 <th>Ticker</th>
-                                <th>Precio USD</th>
-                                <th>PER <div class="tooltip">?<div class="tooltiptext">Años necesarios para recuperar la inversión.<br><br><b style="color:#00ff00">Barato:</b> < 15<br><b style="color:#ff0044">Caro/Burbuja:</b> > 25</div></div></th>
-                                <th>PER Est. <div class="tooltip">?<div class="tooltiptext">Proyección de P/E futuro.<br><br><b style="color:#00ff00">Crecimiento:</b> Si es menor al PER actual, se esperan mayores ganancias.</div></div></th>
-                                <th>BPA <div class="tooltip">?<div class="tooltiptext">Beneficio Por Acción.<br><br><b style="color:#00ff00">Comprar:</b> Positivo (>0). Refleja empresa que genera ganancias.</div></div></th>
-                                <th>P/B <div class="tooltip">?<div class="tooltiptext">Precio sobre Valor Contable.<br><br><b style="color:#00ff00">Subvaluada:</b> < 1.5<br><b style="color:#ff0044">Sobrevaluada:</b> > 3.5</div></div></th>
-                                <th>Div Yield <div class="tooltip">?<div class="tooltiptext">Rendimiento anual por dividendos.<br><br><b style="color:#00ff00">Atractivo:</b> > 3% anual. Ideal para ingresos pasivos.</div></div></th>
-                                <th>Beta <div class="tooltip">?<div class="tooltiptext">Volatilidad comparada contra el mercado.<br><br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff00ff">Agresiva:</b> > 1.2</div></div></th>
-                                <th>Market Cap <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en la bolsa.<br><br><b>Large:</b> > $10 Billones (Menos riesgo).<br><b>Small:</b> < $2 Billones (Más volátil, más potencial).</div></div></th>
+                                <th>Nombre</th>
+                                <th>Moneda</th>
+                                <th>Precio <div class="tooltip">?<div class="tooltiptext">Precio de mercado actual en USD.</div></div></th>
+                                <th>Market Cap <div class="tooltip">?<div class="tooltiptext">Capitalización de Mercado.<br><b>Large:</b> > $10B (Seguro).<br><b>Small:</b> < $2B (Potencial).</div></div></th>
+                                <th>PER <div class="tooltip">?<div class="tooltiptext">Años necesarios para recuperar la inversión.<br><b style="color:#00ff00">Barato:</b> < 15<br><b style="color:#ff0044">Caro:</b> > 25</div></div></th>
+                                <th>BPA (EPS) <div class="tooltip">?<div class="tooltiptext">Beneficio Por Acción.<br><b style="color:#00ff00">Fuerte:</b> > 0 (Genera ganancias).</div></div></th>
+                                <th>Beta <div class="tooltip">?<div class="tooltiptext">Volatilidad vs Mercado.<br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff00ff">Agresiva:</b> > 1.2</div></div></th>
+                                <th>Div. Yield <div class="tooltip">?<div class="tooltiptext">Rendimiento anual por dividendos.<br><b style="color:#00ff00">Alto:</b> > 3%.</div></div></th>
+                                <th>Vol. Prom. <div class="tooltip">?<div class="tooltiptext">Volumen de operaciones promedio diario.</div></div></th>
+                                <th>Mín 52s <div class="tooltip">?<div class="tooltiptext">Piso del precio en el último año.</div></div></th>
+                                <th>Máx 52s <div class="tooltip">?<div class="tooltiptext">Techo del precio en el último año.</div></div></th>
                             </tr>
                         </thead>
                         <tbody id="scannerFundResults"></tbody>
@@ -471,14 +475,16 @@
                         <thead>
                             <tr>
                                 <th>Ticker</th>
-                                <th>Precio USD</th>
-                                <th>RS Score <div class="tooltip">?<div class="tooltiptext">Fuerza relativa frente al mercado.<br><br><b style="color:#00ff00">Fuerte:</b> > 70 (Liderando)<br><b style="color:#ff0044">Débil:</b> < 50 (Rezagada)</div></div></th>
-                                <th>Ratio Vol <div class="tooltip">?<div class="tooltiptext">Volumen de hoy vs Promedio de 3 meses.<br><br><b style="color:#00ff00">Interés Fuerte:</b> > 1.2x<br><b style="color:#9ca3af">Normal:</b> ~ 1.0x</div></div></th>
-                                <th>Dist. Mín. 52s <div class="tooltip">?<div class="tooltiptext">Distancia al piso del último año.<br><br><b style="color:#00ff00">Soporte Cerca:</b> Valores cercanos al 0% indican que podría rebotar.</div></div></th>
-                                <th>Dist. Máx. 52s <div class="tooltip">?<div class="tooltiptext">Distancia al techo del último año.<br><br><b style="color:#ff0044">Resistencia Cerca:</b> Valores cercanos al 0% indican riesgo de corrección.</div></div></th>
-                                <th>RSI 14 <div class="tooltip">?<div class="tooltiptext">Mide la velocidad de los cambios de precio.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div></th>
-                                <th>Dist. EMA 200 <div class="tooltip">?<div class="tooltiptext">Tendencia Macro (Largo Plazo).<br><br><b style="color:#00ff00">Alcista:</b> > 0% (Arriba de la EMA)<br><b style="color:#ff0044">Bajista:</b> < 0% (Abajo de la EMA)</div></div></th>
-                                <th>Dist. SMA 50 <div class="tooltip">?<div class="tooltiptext">Tendencia Trimestral (Mediano Plazo).<br><br><b style="color:#00ff00">Alcista:</b> > 0%<br><b style="color:#ff0044">Bajista:</b> < 0%</div></div></th>
+                                <th>Precio</th>
+                                <th>RSI 14 <div class="tooltip">?<div class="tooltiptext">Índice de Fuerza Relativa.<br><b style="color:#00ff00">Compra:</b> < 35<br><b style="color:#ff0044">Venta:</b> > 65</div></div></th>
+                                <th>MACD <div class="tooltip">?<div class="tooltiptext">Convergencia/Divergencia de Medias Móviles.<br><b style="color:#00ff00">Alcista:</b> > 0</div></div></th>
+                                <th>Stoch. %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico (14,3).<br><b style="color:#00ff00">Sobreventa:</b> < 20<br><b style="color:#ff0044">Sobrecompra:</b> > 80</div></div></th>
+                                <th>SMA 20 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Corto Plazo / 1 mes).</div></div></th>
+                                <th>SMA 50 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Medio Plazo / Trimestre).</div></div></th>
+                                <th>SMA 200 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Largo Plazo / 1 Año).</div></div></th>
+                                <th>Boll. Sup. <div class="tooltip">?<div class="tooltiptext">Banda de Bollinger Superior. Precio por encima indica posible corrección.</div></div></th>
+                                <th>Boll. Inf. <div class="tooltip">?<div class="tooltiptext">Banda de Bollinger Inferior. Precio por debajo indica posible rebote.</div></div></th>
+                                <th>Tendencia <div class="tooltip">?<div class="tooltiptext">Comparación de Precio vs SMA200.<br><b style="color:#00ff00">Bullish:</b> Precio > SMA200.</div></div></th>
                             </tr>
                         </thead>
                         <tbody id="scannerTechResults"></tbody>
