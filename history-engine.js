@@ -3,6 +3,20 @@
 const historicalPricesCache = {};
 let lastFetchTime = 0;
 
+// Utilidad para evitar que un proxy caído bloquee la página por 15 segundos
+async function fetchWithTimeout(url, options = {}, timeout = 4000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    } catch (error) {
+        clearTimeout(id);
+        throw error;
+    }
+}
+
 export async function drawHistoricalChart(transactions, lineChartInstance, isUSD, currentMepRate, historicalMepRates, livePricesMap, canvasId = 'lineChart') {
     if (!transactions || transactions.length === 0) {
         if (lineChartInstance) lineChartInstance.destroy();
@@ -47,17 +61,21 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
 
     async function fetchYahoo(tickerSymbol) {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${tickerSymbol}?interval=1d&range=${range}&_=${Date.now()}`;
+        
+        // Uso los proxies más veloces primero. Codetabs y AllOrigins suelen ser los mejores.
         const proxies = [
-            `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
             `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+            `https://corsproxy.io/?${encodeURIComponent(url)}`
         ];
 
         for (let proxyURL of proxies) {
             try {
-                const res = await fetch(proxyURL);
+                const res = await fetchWithTimeout(proxyURL, {}, 3500); 
                 if (!res.ok) continue; 
                 const json = await res.json();
+                if (!json.chart || !json.chart.result) continue; // Si la data viene mal armada, paso de proxy
+
                 const timestamps = json.chart.result[0].timestamp;
                 const closePrices = json.chart.result[0].indicators.quote[0].close;
                 
@@ -69,7 +87,9 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                     }
                 }
                 return Object.keys(result).length > 0 ? result : null;
-            } catch (e) {}
+            } catch (e) {
+                // Timeout atrapado silenciosamente, pasa al siguiente proxy
+            }
         }
         return null; 
     }
@@ -77,8 +97,11 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
     const now = Date.now();
     const missingTickers = uniqueTickers.filter(t => !historicalPricesCache[t] || Object.keys(historicalPricesCache[t]).length === 0);
     
+    // MAGIA DE PARALELISMO: Promise.all dispara todos los fetch al mismo tiempo
     if (missingTickers.length > 0 || now - lastFetchTime > 3600000) { 
-        for (let ticker of uniqueTickers) {
+        await Promise.all(uniqueTickers.map(async (ticker) => {
+            if (!missingTickers.includes(ticker) && (now - lastFetchTime <= 3600000)) return;
+
             let tickerBA = ticker.includes(".BA") ? ticker : `${ticker}.BA`;
             let tickerUS = ticker.replace(".BA", "");
             
@@ -118,7 +141,6 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                         }
                         
                         if (usPriceOnBuyDate) {
-                            // Para Bonos el ratio histórico también divide por su divisor
                             const actualDivisor = isBonoOrLetra(firstTx.ticker) ? 100 : 1;
                             cedearRatio = firstTx.price / (usPriceOnBuyDate * txMep * actualDivisor);
                         } else if (livePricesMap && livePricesMap[ticker] && livePricesMap[ticker].c) {
@@ -140,7 +162,7 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                     historicalPricesCache[ticker] = {}; 
                 }
             }
-        }
+        }));
         lastFetchTime = now;
     }
 

@@ -12,8 +12,8 @@ const tickerSuggestions = document.getElementById("tickerSuggestions");
 const portfolioResults = document.getElementById("portfolioResults");
 const historyResults = document.getElementById("historyResults");
 const currencySwitch = document.getElementById("currencySwitch");
-const labelARS = document.getElementById("labelARS"); // <-- NUEVO
-const labelUSD = document.getElementById("labelUSD"); // <-- NUEVO
+const labelARS = document.getElementById("labelARS"); 
+const labelUSD = document.getElementById("labelUSD"); 
 const mepRateText = document.getElementById("mepRateText");
 const chartAssetFilter = document.getElementById("chartAssetFilter");
 const globalChartAssetFilter = document.getElementById("globalChartAssetFilter");
@@ -166,6 +166,8 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
             plugins: [ChartDataLabels], 
             data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, 
             options: { 
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: { 
                     tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } },
                     legend: { position: 'right', labels: {color: '#fff'} }, 
@@ -186,6 +188,8 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
             plugins: [ChartDataLabels], 
             data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, 
             options: { 
+                responsive: true,
+                maintainAspectRatio: false,
                 indexAxis: 'y', 
                 scales: { 
                     y: { ticks: { autoSkip: false }, grid: { display: false } },
@@ -225,10 +229,15 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     }
 
     const filteredTxs = currentFilter === 'ALL' ? combinedTxs : combinedTxs.filter(t => t.ticker === currentFilter);
-    try {
-        globalLineChartInstance = await drawHistoricalChart(filteredTxs, globalLineChartInstance, isUSD, currentMepRate, historicalMepRates, globalPricesMap, 'globalLineChart');
-        applyGlobalChartVisibility();
-    } catch (e) {}
+    
+    // CARGA ASÍNCRONA: No bloquea la interfaz de usuario
+    drawHistoricalChart(filteredTxs, globalLineChartInstance, isUSD, currentMepRate, historicalMepRates, globalPricesMap, 'globalLineChart')
+        .then(chart => {
+            if(chart) {
+                globalLineChartInstance = chart;
+                applyGlobalChartVisibility();
+            }
+        }).catch(e => console.error("Error cargando histórico:", e));
 }
 
 let currentCategory = "all"; let editingId = null;
@@ -371,7 +380,6 @@ function renderPortfolio() {
     </tr>`).join("");
     document.getElementById("portfolioResults").innerHTML = html || "<tr><td colspan='7'>Sin activos en cartera</td></tr>";
 
-
     const dispActiveInv = isUSD ? activeInvestedUSD : activeInvestedARS; const dispActiveCur = isUSD ? activeCurrentUSD : activeCurrentARS; const dispActivePNL = dispActiveCur - dispActiveInv;
     document.getElementById("activeInvested").innerText = obfuscate(sym + formatMontoEntero(dispActiveInv)); 
     document.getElementById("activeCurrent").innerText = obfuscate(sym + formatMontoEntero(dispActiveCur)); 
@@ -412,6 +420,8 @@ async function updateCharts(labels, values, pnlPcts, colors) {
             plugins: [ChartDataLabels], 
             data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, 
             options: { 
+                responsive: true,
+                maintainAspectRatio: false, 
                 plugins: { 
                     tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } },
                     legend: { position: 'right', labels: {color: '#fff'} }, 
@@ -430,8 +440,10 @@ async function updateCharts(labels, values, pnlPcts, colors) {
         barChartInstance = new Chart(document.getElementById('barChart'), { 
             type: 'bar', 
             plugins: [ChartDataLabels], 
-            data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, // MaxBar: evita deformarse
+            data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, 
             options: { 
+                responsive: true,
+                maintainAspectRatio: false, 
                 indexAxis: 'y', 
                 scales: { 
                     y: { ticks: { autoSkip: false }, grid: { display: false } },
@@ -450,7 +462,15 @@ async function updateCharts(labels, values, pnlPcts, colors) {
         }); 
     }
     const filterVal = document.getElementById("chartAssetFilter").value; const filteredTxs = filterVal === 'ALL' ? [...transactions] : transactions.filter(t => t.ticker === filterVal);
-    try { lineChartInstance = await drawHistoricalChart(filteredTxs, lineChartInstance, isUSD, currentMepRate, historicalMepRates, livePricesMap, 'lineChart'); applyChartVisibility(); } catch (error) {}
+    
+    // CARGA ASÍNCRONA: Desacoplamos el gráfico para que no bloquee la interfaz
+    drawHistoricalChart(filteredTxs, lineChartInstance, isUSD, currentMepRate, historicalMepRates, livePricesMap, 'lineChart')
+        .then(chart => {
+            if(chart) {
+                lineChartInstance = chart;
+                applyChartVisibility();
+            }
+        }).catch(e => console.error("Error cargando histórico:", e));
 }
 
 function renderHistory() {
@@ -514,11 +534,8 @@ document.querySelectorAll(".categories .category").forEach(btn => {
     });
 });
 
-// --- LÓGICA DEL BOTÓN DE MONEDA ARS/USD ---
 currencySwitch.addEventListener("change", (e) => { 
     isUSD = e.target.checked; 
-    
-    // Cambia el color de la palabra ARS y USD
     if (isUSD) {
         labelARS.classList.remove("active-currency");
         labelUSD.classList.add("active-currency");
@@ -526,13 +543,7 @@ currencySwitch.addEventListener("change", (e) => {
         labelARS.classList.add("active-currency");
         labelUSD.classList.remove("active-currency");
     }
-
-    // Refresca la vista
-    renderPortfolio(); 
-    renderHistory(); 
-    renderMarketTable(); 
-    renderFciPortfolio(); 
-    renderFciHistory(); 
+    renderPortfolio(); renderHistory(); renderMarketTable(); renderFciPortfolio(); renderFciHistory(); 
 });
 
 chartAssetFilter.addEventListener("change", renderPortfolio);
