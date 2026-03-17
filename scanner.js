@@ -387,6 +387,7 @@ function buildFundTable(data) {
     scannerFundResults.innerHTML = "";
     if (data.length === 0) return;
 
+    document.querySelector("#scannerFundContainer th:nth-child(5)").innerHTML = `Precio Actual`;
     document.querySelector("#scannerFundContainer th:nth-child(6)").innerHTML = `Market Cap (USD) <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en bolsa.<br><br>Large Cap: > $10B<br>Mid Cap: $2B - $10B<br>Small Cap: < $2B</div></div>`;
     document.querySelector("#scannerFundContainer th:nth-child(7)").innerHTML = `PER <div class="tooltip">?<div class="tooltiptext">Años para recuperar la inversión.<br><br><b style="color:#00ff00">Comprar (Barato):</b> < 15<br><b style="color:#ff0044">Vender (Caro):</b> > 25</div></div>`;
     document.querySelector("#scannerFundContainer th:nth-child(8)").innerHTML = `BPA (USD) <div class="tooltip">?<div class="tooltiptext">Beneficio neto por cada acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Gana dinero)<br><b style="color:#ff0044">Vender:</b> < 0 (Da pérdidas)</div></div>`;
@@ -423,6 +424,7 @@ function buildTechTable(data) {
     scannerTechResults.innerHTML = "";
     if (data.length === 0) return;
 
+    document.querySelector("#scannerTechContainer th:nth-child(3)").innerHTML = `Precio Actual`;
     document.querySelector("#scannerTechContainer th:nth-child(4)").innerHTML = `RSI 14 <div class="tooltip">?<div class="tooltiptext">Índice de Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div>`;
     document.querySelector("#scannerTechContainer th:nth-child(5)").innerHTML = `MACD <div class="tooltip">?<div class="tooltiptext">Convergencia/Divergencia de Medias.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Fuerza alcista)<br><b style="color:#ff0044">Vender:</b> < 0 (Fuerza bajista)</div></div>`;
     document.querySelector("#scannerTechContainer th:nth-child(6)").innerHTML = `Stoch %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico.<br><br><b style="color:#00ff00">Comprar:</b> < 20 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 80 (Sobrecompra)</div></div>`;
@@ -462,7 +464,7 @@ document.addEventListener("click", (e) => {
     }
 });
 
-// --- VISTA COMPARADOR VERTICAL (Con Sticky Header Mejorado) ---
+// --- VISTA COMPARADOR VERTICAL (Con Tooltips forzados a la derecha) ---
 function buildCompareView() {
     const assets = compareSelection.map(ticker => scannerData.find(d => d.ticker === ticker)).filter(x => x);
     if(assets.length === 0) return;
@@ -502,41 +504,44 @@ function buildCompareView() {
         return row;
     };
 
+    // Estilo especial inyectado para que la burbuja se abra a la derecha y no se corte
+    const ttStyle = `style="left: 30px; top: -5px; bottom: auto; right: auto; transform: none; width: 220px; z-index: 99999;"`;
+
     let html = `<thead>${headers}</thead><tbody>`;
     html += createRow(`Moneda Operativa`, "currency");
-    html += createRow(`Precio Base`, "price", false, null, true);
+    html += createRow(`Precio Actual`, "price", false, null, true);
     
     html += `<tr><td colspan="${assets.length + 1}" style="background: rgba(255,255,255,0.05); color:#fff; font-weight:bold; text-align:center; padding: 10px;">FUNDAMENTALES Y RENDIMIENTO (USD)</td></tr>`;
-    html += createRow(`PER <div class="tooltip">?<div class="tooltiptext">Años para recuperar la inversión.<br><br><b style="color:#00ff00">Comprar:</b> < 15<br><b style="color:#ff0044">Vender:</b> > 25</div></div>`, "pe", false, 'pe');
-    html += createRow(`BPA / EPS <div class="tooltip">?<div class="tooltiptext">Beneficio neto por cada acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div>`, "eps", false, 'eps');
-    html += createRow(`Rend. Beneficio <div class="tooltip">?<div class="tooltiptext">Rentabilidad real anual (EPS/Precio).<br><br><b style="color:#00ff00">Atractivo:</b> > 5%<br><b style="color:#ff0044">Pobre:</b> < 3%</div></div>`, "earnYield", true, 'ey');
-    html += createRow(`Beta <div class="tooltip">?<div class="tooltiptext">Volatilidad frente al mercado global.<br><br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff0044">Agresiva:</b> > 1.2</div></div>`, "beta", false, 'beta');
-    html += createRow(`Market Cap <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en bolsa.</div></div>`, "mcap", false, null, false, true);
-    html += createRow(`Vol Promedio <div class="tooltip">?<div class="tooltiptext">Cantidad media de acciones operadas por día.</div></div>`, "volAvg", false, null, false, true);
-    html += createRow(`Máx 52s <div class="tooltip">?<div class="tooltiptext">Precio máximo alcanzado en el último año.</div></div>`, "yearHigh", false, null, true);
-    html += createRow(`Mín 52s <div class="tooltip">?<div class="tooltiptext">Precio mínimo tocado en el último año.</div></div>`, "yearLow", false, null, true);
-    html += createRow(`Variación Hoy <div class="tooltip">?<div class="tooltiptext">Cambio porcentual del precio respecto a la rueda anterior.</div></div>`, "changePct", true, 'change');
-    html += createRow(`Rend. 1 Mes <div class="tooltip">?<div class="tooltiptext">Rendimiento del último mes.</div></div>`, "perf1M", true, 'change');
-    html += createRow(`Rend. 6 Meses <div class="tooltip">?<div class="tooltiptext">Rendimiento del último semestre.</div></div>`, "perf6M", true, 'change');
-    html += createRow(`Rend. 1 Año <div class="tooltip">?<div class="tooltiptext">Rendimiento de los últimos 12 meses.</div></div>`, "perf1Y", true, 'change');
-    html += createRow(`Dist. al Máx <div class="tooltip">?<div class="tooltiptext">Caída desde su pico histórico anual (Drawdown).</div></div>`, "distHigh", true, 'change');
-    html += createRow(`Dist. al Mín <div class="tooltip">?<div class="tooltiptext">Subida desde su piso histórico anual.</div></div>`, "distLow", true, 'change');
+    html += createRow(`PER <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Años para recuperar la inversión.<br><br><b style="color:#00ff00">Comprar:</b> < 15<br><b style="color:#ff0044">Vender:</b> > 25</div></div>`, "pe", false, 'pe');
+    html += createRow(`BPA / EPS <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Beneficio neto por cada acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div>`, "eps", false, 'eps');
+    html += createRow(`Rend. Beneficio <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rentabilidad real anual (EPS/Precio).<br><br><b style="color:#00ff00">Atractivo:</b> > 5%<br><b style="color:#ff0044">Pobre:</b> < 3%</div></div>`, "earnYield", true, 'ey');
+    html += createRow(`Beta <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Volatilidad frente al mercado global.<br><br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff0044">Agresiva:</b> > 1.2</div></div>`, "beta", false, 'beta');
+    html += createRow(`Market Cap <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Tamaño total de la empresa en bolsa.</div></div>`, "mcap", false, null, false, true);
+    html += createRow(`Vol Promedio <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Cantidad media de acciones operadas por día.</div></div>`, "volAvg", false, null, false, true);
+    html += createRow(`Máx 52s <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Precio máximo alcanzado en el último año.</div></div>`, "yearHigh", false, null, true);
+    html += createRow(`Mín 52s <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Precio mínimo tocado en el último año.</div></div>`, "yearLow", false, null, true);
+    html += createRow(`Variación Hoy <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Cambio porcentual del precio respecto a la rueda anterior.</div></div>`, "changePct", true, 'change');
+    html += createRow(`Rend. 1 Mes <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento del último mes.</div></div>`, "perf1M", true, 'change');
+    html += createRow(`Rend. 6 Meses <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento del último semestre.</div></div>`, "perf6M", true, 'change');
+    html += createRow(`Rend. 1 Año <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento de los últimos 12 meses.</div></div>`, "perf1Y", true, 'change');
+    html += createRow(`Dist. al Máx <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Caída desde su pico histórico anual (Drawdown).</div></div>`, "distHigh", true, 'change');
+    html += createRow(`Dist. al Mín <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Subida desde su piso histórico anual.</div></div>`, "distLow", true, 'change');
 
     html += `<tr><td colspan="${assets.length + 1}" style="background: rgba(255,255,255,0.05); color:#fff; font-weight:bold; text-align:center; padding: 10px;">TÉCNICOS Y TENDENCIA</td></tr>`;
-    html += createRow(`Tendencia <div class="tooltip">?<div class="tooltiptext">Cruce de Medias Móviles.<br><br><b style="color:#00ff00">Comprar (Golden):</b> SMA 50 > 200<br><b style="color:#ff0044">Vender (Death):</b> SMA 50 < 200</div></div>`, "crossStatus");
-    html += createRow(`RSI (14) <div class="tooltip">?<div class="tooltiptext">Índice de Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div>`, "rsi", false, 'rsi');
-    html += createRow(`MFI (Flujo) <div class="tooltip">?<div class="tooltiptext">Índice de Flujo de Dinero (RSI + Volumen).</div></div>`, "mfi", false, 'mfi');
-    html += createRow(`MACD <div class="tooltip">?<div class="tooltiptext">Convergencia de Medias.</div></div>`, "macd", false, 'macd');
-    html += createRow(`Stoch %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico.</div></div>`, "stochK", false, 'stoch');
-    html += createRow(`ATR (Volat) <div class="tooltip">?<div class="tooltiptext">Variación diaria promedio del precio en dinero.</div></div>`, "atr");
-    html += createRow(`Dist. SMA 200 <div class="tooltip">?<div class="tooltiptext">Alejamiento porcentual de la media histórica anual.</div></div>`, "distSMA200", true, 'distSMA');
-    html += createRow(`EMA 20 <div class="tooltip">?<div class="tooltiptext">Media Móvil Exponencial (1 mes).</div></div>`, "ema20", false, null, true);
-    html += createRow(`EMA 50 <div class="tooltip">?<div class="tooltiptext">Media Móvil Exponencial (1 trimestre).</div></div>`, "ema50", false, null, true);
-    html += createRow(`SMA 20 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (1 mes).</div></div>`, "sma20", false, null, true);
-    html += createRow(`SMA 50 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (1 trimestre).</div></div>`, "sma50", false, null, true);
-    html += createRow(`SMA 200 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Anual).</div></div>`, "sma200", false, null, true);
-    html += createRow(`Boll Sup <div class="tooltip">?<div class="tooltiptext">Techo probabilístico del precio.</div></div>`, "bollUpper", false, null, true);
-    html += createRow(`Boll Inf <div class="tooltip">?<div class="tooltiptext">Piso probabilístico del precio.</div></div>`, "bollLower", false, null, true);
+    html += createRow(`Tendencia <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Cruce de Medias Móviles.<br><br><b style="color:#00ff00">Comprar (Golden):</b> SMA 50 > 200<br><b style="color:#ff0044">Vender (Death):</b> SMA 50 < 200</div></div>`, "crossStatus");
+    html += createRow(`RSI (14) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Índice de Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div>`, "rsi", false, 'rsi');
+    html += createRow(`MFI (Flujo) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Índice de Flujo de Dinero (RSI + Volumen).</div></div>`, "mfi", false, 'mfi');
+    html += createRow(`MACD <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Convergencia de Medias.</div></div>`, "macd", false, 'macd');
+    html += createRow(`Stoch %K <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Oscilador Estocástico.</div></div>`, "stochK", false, 'stoch');
+    html += createRow(`ATR (Volat) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Variación diaria promedio del precio en dinero.</div></div>`, "atr");
+    html += createRow(`Dist. SMA 200 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Alejamiento porcentual de la media histórica anual.</div></div>`, "distSMA200", true, 'distSMA');
+    html += createRow(`EMA 20 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Exponencial (1 mes).</div></div>`, "ema20", false, null, true);
+    html += createRow(`EMA 50 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Exponencial (1 trimestre).</div></div>`, "ema50", false, null, true);
+    html += createRow(`SMA 20 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Simple (1 mes).</div></div>`, "sma20", false, null, true);
+    html += createRow(`SMA 50 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Simple (1 trimestre).</div></div>`, "sma50", false, null, true);
+    html += createRow(`SMA 200 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Simple (Anual).</div></div>`, "sma200", false, null, true);
+    html += createRow(`Boll Sup <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Techo probabilístico del precio.</div></div>`, "bollUpper", false, null, true);
+    html += createRow(`Boll Inf <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Piso probabilístico del precio.</div></div>`, "bollLower", false, null, true);
     
     html += `</tbody>`;
     compareTable.innerHTML = html;
