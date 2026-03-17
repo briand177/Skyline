@@ -1,6 +1,6 @@
 import { CONFIG } from "./config.js";
 import { initScanner } from "./scanner.js";
-import { drawHistoricalChart } from "./history-engine.js"; 
+import { drawHistoricalChart, historicalPricesCache } from "./history-engine.js"; 
 import { initFCI, renderFciPortfolio, renderFciHistory } from "./fci.js";
 
 const txModal = document.getElementById("txModal");
@@ -28,20 +28,12 @@ export let bolsaHoldingsArr = [];
 export let transactions = JSON.parse(localStorage.getItem('bolsa_transactions')) || [];
 export let livePricesMap = {}; 
 
-export function formatMonto(num) { 
-    return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num || 0); 
-}
-export function formatMontoEntero(num) {
-    return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(parseFloat(num) || 0);
-}
+export function formatMonto(num) { return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num || 0); }
+export function formatMontoEntero(num) { return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(parseFloat(num) || 0); }
 export function formatPrecio(val, maxDec = 2) {
-    const num = parseFloat(val);
-    if (isNaN(num)) return "0";
-    if (num % 1 === 0) {
-        return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(num);
-    } else {
-        return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: maxDec }).format(num);
-    }
+    const num = parseFloat(val); if (isNaN(num)) return "0";
+    if (num % 1 === 0) return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(num);
+    else return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: maxDec }).format(num);
 }
 
 export function getHistoricalMepRate(dateStr) {
@@ -54,7 +46,6 @@ export let isPrivacyMode = localStorage.getItem('skyline_privacy_mode') === 'tru
 export function obfuscate(text) { return isPrivacyMode ? "****" : text; }
 
 const privacyToggleBtn = document.getElementById("privacyToggleBtn");
-
 function updatePrivacyUI() {
     if (privacyToggleBtn) privacyToggleBtn.innerText = isPrivacyMode ? "🙈" : "👁️";
     if (isPrivacyMode) document.body.classList.add("privacy-mode");
@@ -64,30 +55,106 @@ updatePrivacyUI();
 
 if (privacyToggleBtn) {
     privacyToggleBtn.addEventListener("click", () => {
-        isPrivacyMode = !isPrivacyMode;
-        localStorage.setItem('skyline_privacy_mode', isPrivacyMode); 
-        updatePrivacyUI();
-        
-        renderPortfolio();
-        renderHistory();
-        renderFciPortfolio();
-        renderFciHistory();
+        isPrivacyMode = !isPrivacyMode; localStorage.setItem('skyline_privacy_mode', isPrivacyMode); updatePrivacyUI();
+        renderPortfolio(); renderHistory(); renderFciPortfolio(); renderFciHistory();
     });
 }
 
 document.getElementById('logoSkyline')?.addEventListener('click', () => {
     document.querySelectorAll(".tab-btn, .view-section").forEach(el => el.classList.remove("active")); 
-    document.querySelector('[data-target="globalView"]').classList.add("active"); 
-    document.getElementById("globalView").classList.add("active");
+    document.querySelector('[data-target="globalView"]').classList.add("active"); document.getElementById("globalView").classList.add("active");
 });
 
 export function matchSearch(text, searchStr) {
     if (!searchStr) return true;
     const normalize = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const normalizedText = normalize(text);
-    const terms = normalize(searchStr).split(/\s+/).filter(t => t);
+    const normalizedText = normalize(text); const terms = normalize(searchStr).split(/\s+/).filter(t => t);
     return terms.every(term => normalizedText.includes(term));
 }
+
+export let currentTablePeriod = 'ALL';
+
+document.querySelectorAll('.time-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const period = e.target.dataset.period;
+        
+        const container = e.target.closest('.time-filters');
+        if (container) {
+            container.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+        } else {
+            document.querySelectorAll('.time-btn').forEach(b => {
+                if(b.dataset.period === period) b.classList.add('active'); else b.classList.remove('active');
+            });
+        }
+        
+        document.querySelectorAll('.time-btn').forEach(b => {
+            if(b.dataset.period === period) b.classList.add('active'); else b.classList.remove('active');
+        });
+
+        currentTablePeriod = period;
+        renderPortfolio();
+        renderGlobalPortfolio();
+        renderFciPortfolio();
+    });
+});
+
+// --- LÓGICA DE RENDIMIENTO (CORREGIDA PARA DÓLAR MEP HISTÓRICO) ---
+export function getAssetPerformance(ticker, period) {
+    if (!historicalPricesCache[ticker]) return null;
+    const dates = Object.keys(historicalPricesCache[ticker]).sort();
+    if (dates.length < 2) return null;
+
+    const lastDateStr = dates[dates.length - 1];
+    let lastPrice = historicalPricesCache[ticker][lastDateStr];
+    
+    // Si estamos en USD, convertimos el precio final a USD usando el MEP de ese día
+    if (isUSD) lastPrice = lastPrice / getHistoricalMepRate(lastDateStr);
+
+    const today = new Date(`${lastDateStr}T12:00:00`); 
+    let targetDate = new Date(today);
+
+    if (period === '1D') {
+        const prevDateStr = dates[dates.length - 2];
+        let prevPrice = historicalPricesCache[ticker][prevDateStr];
+        
+        // Si estamos en USD, convertimos el precio de ayer a USD usando el MEP de AYER
+        if (isUSD) prevPrice = prevPrice / getHistoricalMepRate(prevDateStr);
+        
+        if (prevPrice > 0) return ((lastPrice - prevPrice) / prevPrice) * 100;
+        return null;
+    }
+    else if (period === '1M') targetDate.setMonth(today.getMonth() - 1);
+    else if (period === '6M') targetDate.setMonth(today.getMonth() - 6);
+    else if (period === 'YTD') targetDate = new Date(today.getFullYear(), 0, 1);
+    else if (period === '1Y') targetDate.setFullYear(today.getFullYear() - 1);
+    else return null;
+
+    let pastPrice = null;
+    let pastDateStr = null;
+    for (let i = dates.length - 1; i >= 0; i--) {
+        if (new Date(`${dates[i]}T12:00:00`) <= targetDate) { 
+            pastPrice = historicalPricesCache[ticker][dates[i]]; 
+            pastDateStr = dates[i];
+            break; 
+        }
+    }
+    
+    // Si no hay datos tan viejos, tomamos el más antiguo disponible
+    if (!pastPrice) { 
+        pastPrice = historicalPricesCache[ticker][dates[0]]; 
+        pastDateStr = dates[0];
+    }
+
+    // Si estamos en USD, convertimos el precio pasado a USD usando el MEP de ESE DÍA PASADO
+    if (isUSD && pastPrice > 0) {
+        pastPrice = pastPrice / getHistoricalMepRate(pastDateStr);
+    }
+
+    if (pastPrice > 0) return ((lastPrice - pastPrice) / pastPrice) * 100;
+    return null;
+}
+// ------------------------------------------------------------------
 
 export let lastFciTotals = { actInvARS: 0, actInvUSD: 0, actCurARS: 0, actCurUSD: 0, clsInvARS: 0, clsInvUSD: 0, clsProARS: 0, clsProUSD: 0 };
 export let lastFciHoldings = [];
@@ -95,6 +162,7 @@ export let lastFciTxs = [];
 
 let globalPieChartInstance = null; let globalBarChartInstance = null; let globalLineChartInstance = null;
 let pieChartInstance = null; let barChartInstance = null; let lineChartInstance = null;
+let globalDrawId = 0; let bolsaDrawId = 0;
 Chart.defaults.color = '#9ca3af'; 
 
 export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null, fciTxs = null) {
@@ -107,7 +175,6 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     const actInv = isUSD ? (b.actInvUSD + fci.actInvUSD) : (b.actInvARS + fci.actInvARS);
     const actCur = isUSD ? (b.actCurUSD + fci.actCurUSD) : (b.actCurARS + fci.actCurARS);
     const actPnl = actCur - actInv; const actPct = actInv > 0 ? (actPnl / actInv) * 100 : 0;
-    
     document.getElementById("globalActiveInvested").innerText = obfuscate(sym + formatMontoEntero(actInv));
     document.getElementById("globalActiveCurrent").innerText = obfuscate(sym + formatMontoEntero(actCur));
     document.getElementById("globalActivePNL").innerText = obfuscate(`${sym}${formatMontoEntero(actPnl)} (${actPct.toFixed(2)}%)`);
@@ -116,7 +183,6 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     const clsInv = isUSD ? (b.clsInvUSD + fci.clsInvUSD) : (b.clsInvARS + fci.clsInvARS);
     const clsCur = isUSD ? (b.clsProUSD + fci.clsProUSD) : (b.clsProARS + fci.clsProARS);
     const clsPnl = clsCur - clsInv; const clsPct = clsInv > 0 ? (clsPnl / clsInv) * 100 : 0;
-    
     document.getElementById("globalClosedInvested").innerText = obfuscate(sym + formatMontoEntero(clsInv));
     document.getElementById("globalClosedCurrent").innerText = obfuscate(sym + formatMontoEntero(clsCur));
     document.getElementById("globalClosedPNL").innerText = obfuscate(`${sym}${formatMontoEntero(clsPnl)} (${clsPct.toFixed(2)}%)`);
@@ -124,7 +190,6 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
 
     const totInv = actInv + clsInv; const totCur = actCur + clsCur;
     const totPnl = totCur - totInv; const totPct = totInv > 0 ? (totPnl / totInv) * 100 : 0;
-    
     document.getElementById("globalTotalInvested").innerText = obfuscate(sym + formatMontoEntero(totInv));
     document.getElementById("globalTotalCurrent").innerText = obfuscate(sym + formatMontoEntero(totCur));
     document.getElementById("globalTotalPNL").innerText = obfuscate(`${sym}${formatMontoEntero(totPnl)} (${totPct.toFixed(2)}%)`);
@@ -136,107 +201,63 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     const filterText = document.getElementById("searchGlobalPortfolio")?.value || "";
     const filteredCombined = combinedHoldings.filter(h => matchSearch(`${h.ticker} ${h.tag}`, filterText));
 
+    const th1 = document.getElementById("globalThPnl1"); const th2 = document.getElementById("globalThPnl2");
+    if (currentTablePeriod === 'ALL') { th1.style.display = ""; th1.innerText = "P/L ($)"; th2.innerText = "P/L (%)"; } 
+    else { th1.style.display = "none"; th2.innerText = `Rend. Mercado (${currentTablePeriod})`; }
+
     let html = filteredCombined.map(h => {
-        let dispCur = isUSD ? h.currentUSD : h.currentARS;
-        let dispPnl = isUSD ? h.pnlUSD : h.pnlARS;
+        let dispCur = isUSD ? h.currentUSD : h.currentARS; let dispPnl = isUSD ? h.pnlUSD : h.pnlARS;
+        
+        let pct1D = null;
+        if (livePricesMap[h.ticker] && livePricesMap[h.ticker].pct_change !== undefined && !isUSD) pct1D = parseFloat(livePricesMap[h.ticker].pct_change);
+        else pct1D = getAssetPerformance(h.ticker, '1D');
+        
+        let badgeHtml = '';
+        if (pct1D !== null && !isNaN(pct1D)) {
+            const bClass = pct1D >= 0 ? 'badge-positive' : 'badge-negative';
+            badgeHtml = `<span class="daily-badge ${bClass}">${pct1D > 0 ? '+' : ''}${pct1D.toFixed(2)}%</span>`;
+        }
+
+        let pnlCellHtml = '';
+        if (currentTablePeriod === 'ALL') {
+            pnlCellHtml = `<td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(dispPnl))}</td><td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>`;
+        } else {
+            const perf = getAssetPerformance(h.ticker, currentTablePeriod);
+            const perfStr = perf !== null ? (perf > 0 ? '+' : '') + perf.toFixed(2) + '%' : '-';
+            const perfClass = perf !== null ? (perf >= 0 ? 'positive' : 'negative') : 'neutral';
+            pnlCellHtml = `<td colspan="2" style="text-align:center;" class="${perfClass}"><strong>${obfuscate(perfStr)}</strong></td>`;
+        }
+
         return `<tr>
             <td><strong>${h.ticker}</strong> <span style="font-size:10px; color:#9ca3af; border:1px solid #374151; padding:2px; border-radius:4px; margin-left:5px;">${h.tag}</span></td>
             <td>${obfuscate(h.qtyStr)}</td>
             <td>${obfuscate(h.nativeSym + formatPrecio(h.nativePPC))}</td>
-            <td>${h.nativeSym}${formatPrecio(h.nativePrice)}</td>
+            <td>${h.nativeSym}${formatPrecio(h.nativePrice)} ${badgeHtml}</td>
             <td>${obfuscate(sym + formatMonto(dispCur))}</td>
-            <td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(dispPnl))}</td>
-            <td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>
+            ${pnlCellHtml}
         </tr>`;
     }).join("");
     document.getElementById("globalPortfolioResults").innerHTML = html || "<tr><td colspan='7'>Sin activos en cartera</td></tr>";
 
-    let labels = combinedHoldings.map(h => h.ticker);
-    let values = combinedHoldings.map(h => isUSD ? h.currentUSD : h.currentARS);
-    let pnlPcts = combinedHoldings.map(h => h.pnlPct);
-    let colors = pnlPcts.map(p => p >= 0 ? '#00ff00' : '#ff0044');
+    let labels = combinedHoldings.map(h => h.ticker); let values = combinedHoldings.map(h => isUSD ? h.currentUSD : h.currentARS);
+    let pnlPcts = combinedHoldings.map(h => h.pnlPct); let colors = pnlPcts.map(p => p >= 0 ? '#00ff00' : '#ff0044');
 
-    if (globalPieChartInstance) { 
-        globalPieChartInstance.data.labels = labels; 
-        globalPieChartInstance.data.datasets[0].data = values; 
-        globalPieChartInstance.update(); 
-    } else { 
-        globalPieChartInstance = new Chart(document.getElementById('globalPieChart'), { 
-            type: 'doughnut', 
-            plugins: [ChartDataLabels], 
-            data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, 
-            options: { 
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } },
-                    legend: { position: 'right', labels: {color: '#fff'} }, 
-                    datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } 
-                } 
-            } 
-        }); 
-    }
-    
-    if (globalBarChartInstance) { 
-        globalBarChartInstance.data.labels = labels; 
-        globalBarChartInstance.data.datasets[0].data = pnlPcts; 
-        globalBarChartInstance.data.datasets[0].backgroundColor = colors; 
-        globalBarChartInstance.update(); 
-    } else { 
-        globalBarChartInstance = new Chart(document.getElementById('globalBarChart'), { 
-            type: 'bar', 
-            plugins: [ChartDataLabels], 
-            data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, 
-            options: { 
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y', 
-                scales: { 
-                    y: { ticks: { autoSkip: false }, grid: { display: false } },
-                    x: { grid: { color: '#1f2937' } }
-                },
-                plugins: { 
-                    legend: { display: false }, 
-                    datalabels: { 
-                        color: '#fff', 
-                        font: { size: 11, weight: 'bold' }, 
-                        display: function(ctx) { return ctx.chart.data.labels.length <= 12; }, 
-                        formatter: v => v.toFixed(1) + '%' 
-                    } 
-                } 
-            } 
-        }); 
-    }
+    if (globalPieChartInstance) { globalPieChartInstance.data.labels = labels; globalPieChartInstance.data.datasets[0].data = values; globalPieChartInstance.update(); } 
+    else { globalPieChartInstance = new Chart(document.getElementById('globalPieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } }, legend: { position: 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
+    if (globalBarChartInstance) { globalBarChartInstance.data.labels = labels; globalBarChartInstance.data.datasets[0].data = pnlPcts; globalBarChartInstance.data.datasets[0].backgroundColor = colors; globalBarChartInstance.update(); } 
+    else { globalBarChartInstance = new Chart(document.getElementById('globalBarChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { y: { ticks: { autoSkip: false }, grid: { display: false } }, x: { grid: { color: '#1f2937' } } }, plugins: { legend: { display: false }, datalabels: { color: '#fff', font: { size: 11, weight: 'bold' }, display: function(ctx) { return ctx.chart.data.labels.length <= 12; }, formatter: v => v.toFixed(1) + '%' } } } }); }
 
-    let normalizedFciTxs = lastFciTxs.map(tx => {
-        let txMep = getHistoricalMepRate(tx.date);
-        let priceARS = tx.currency === 'USD' ? tx.price * txMep : tx.price;
-        return { id: tx.id, ticker: tx.ticker, type: tx.type, qty: tx.qty / 1000, price: priceARS, commission: 0, date: tx.date };
-    });
+    let normalizedFciTxs = lastFciTxs.map(tx => { let txMep = getHistoricalMepRate(tx.date); let priceARS = tx.currency === 'USD' ? tx.price * txMep : tx.price; return { id: tx.id, ticker: tx.ticker, type: tx.type, qty: tx.qty / 1000, price: priceARS, commission: 0, date: tx.date }; });
     let combinedTxs = [...transactions, ...normalizedFciTxs];
-    
-    let globalPricesMap = { ...livePricesMap };
-    lastFciHoldings.forEach(h => { globalPricesMap[h.ticker] = { c: h.priceARS }; });
+    let globalPricesMap = { ...livePricesMap }; lastFciHoldings.forEach(h => { globalPricesMap[h.ticker] = { c: h.priceARS }; });
 
-    const uniqueTickers = [...new Set(combinedTxs.map(t => t.ticker))].sort();
-    const currentFilter = globalChartAssetFilter.value;
-    if (globalChartAssetFilter.options.length !== uniqueTickers.length + 1) {
-        globalChartAssetFilter.innerHTML = '<option value="ALL">Total Cartera</option>';
-        uniqueTickers.forEach(t => {
-            const opt = document.createElement('option'); opt.value = t; opt.innerText = t;
-            if (t === currentFilter) opt.selected = true; globalChartAssetFilter.appendChild(opt);
-        });
-    }
-
+    const uniqueTickers = [...new Set(combinedTxs.map(t => t.ticker))].sort(); const currentFilter = globalChartAssetFilter.value;
+    if (globalChartAssetFilter.options.length !== uniqueTickers.length + 1) { globalChartAssetFilter.innerHTML = '<option value="ALL">Total Cartera</option>'; uniqueTickers.forEach(t => { const opt = document.createElement('option'); opt.value = t; opt.innerText = t; if (t === currentFilter) opt.selected = true; globalChartAssetFilter.appendChild(opt); }); }
     const filteredTxs = currentFilter === 'ALL' ? combinedTxs : combinedTxs.filter(t => t.ticker === currentFilter);
     
+    const myDrawId = ++globalDrawId; 
     drawHistoricalChart(filteredTxs, globalLineChartInstance, isUSD, currentMepRate, historicalMepRates, globalPricesMap, 'globalLineChart')
-        .then(chart => {
-            if(chart) {
-                globalLineChartInstance = chart;
-                applyGlobalChartVisibility();
-            }
-        }).catch(e => console.error("Error cargando histórico:", e));
+        .then(chart => { if (myDrawId !== globalDrawId) { if (chart) chart.destroy(); return; } if(chart) { globalLineChartInstance = chart; applyGlobalChartVisibility(); } }).catch(e => console.error("Error cargando histórico:", e));
 }
 
 let currentCategory = "all"; let editingId = null;
@@ -245,10 +266,8 @@ txTickerInput.addEventListener("input", () => {
     const val = txTickerInput.value.toUpperCase(); tickerSuggestions.innerHTML = "";
     if (!val) { tickerSuggestions.style.display = "none"; return; }
     const tickers = Object.keys(livePricesMap); const matches = tickers.filter(t => t.includes(val)).slice(0, 8); 
-    if (matches.length > 0) {
-        tickerSuggestions.style.display = "block";
-        matches.forEach(match => { const li = document.createElement("li"); li.textContent = match; li.addEventListener("click", () => { txTickerInput.value = match; tickerSuggestions.style.display = "none"; }); tickerSuggestions.appendChild(li); });
-    } else { tickerSuggestions.style.display = "none"; }
+    if (matches.length > 0) { tickerSuggestions.style.display = "block"; matches.forEach(match => { const li = document.createElement("li"); li.textContent = match; li.addEventListener("click", () => { txTickerInput.value = match; tickerSuggestions.style.display = "none"; }); tickerSuggestions.appendChild(li); }); } 
+    else { tickerSuggestions.style.display = "none"; }
 });
 
 function setTodayDate() { document.getElementById("txDate").value = new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0]; }
@@ -260,18 +279,14 @@ if(closeTxModal) closeTxModal.addEventListener("click", closeModal);
 window.addEventListener("click", (e) => { if (e.target === txModal) closeModal(); });
 
 transactionForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const submitBtn = document.getElementById("btnSubmitTx"); if (submitBtn.disabled) return; submitBtn.disabled = true; 
+    e.preventDefault(); const submitBtn = document.getElementById("btnSubmitTx"); if (submitBtn.disabled) return; submitBtn.disabled = true; 
     const tickerVal = txTickerInput.value.toUpperCase().trim(); const typeVal = document.getElementById("txType").value;
     const qtyVal = parseInt(document.getElementById("txQty").value, 10); const priceVal = parseFloat(document.getElementById("txPrice").value);
     const commVal = parseFloat(document.getElementById("txComision").value) || 0; const dateVal = document.getElementById("txDate").value;
 
     const newTx = { id: editingId ? editingId : Date.now(), ticker: tickerVal, type: typeVal, qty: Math.abs(qtyVal), price: Math.abs(priceVal), commission: Math.abs(commVal), date: dateVal };
     if (editingId) { const idx = transactions.findIndex(t => t.id === editingId); if (idx !== -1) transactions[idx] = newTx; } else { transactions.push(newTx); }
-
-    localStorage.setItem('bolsa_transactions', JSON.stringify(transactions));
-    closeModal(); renderHistory(); renderPortfolio(); 
-    setTimeout(() => { submitBtn.disabled = false; }, 500);
+    localStorage.setItem('bolsa_transactions', JSON.stringify(transactions)); closeModal(); renderHistory(); renderPortfolio(); setTimeout(() => { submitBtn.disabled = false; }, 500);
 });
 
 async function loadData(category = "all") {
@@ -279,11 +294,7 @@ async function loadData(category = "all") {
     try {
         const mepRes = await fetch(CONFIG.DOLLAR_API); const dolares = await mepRes.json();
         const historicoBolsa = dolares.filter(d => d.casa === "bolsa");
-        if (historicoBolsa.length > 0) {
-            historicoBolsa.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-            historicalMepRates = historicoBolsa; currentMepRate = parseFloat(historicoBolsa[0].venta);
-            mepRateText.innerText = `(MEP: $${currentMepRate.toFixed(2)})`;
-        }
+        if (historicoBolsa.length > 0) { historicoBolsa.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); historicalMepRates = historicoBolsa; currentMepRate = parseFloat(historicoBolsa[0].venta); mepRateText.innerText = `(MEP: $${currentMepRate.toFixed(2)})`; }
         
         let data = [];
         if (category === "all") {
@@ -311,31 +322,22 @@ function renderPortfolio() {
     let closedProceedsARS = 0; let closedProceedsUSD = 0; let closedInvestedARS = 0; let closedInvestedUSD = 0;
     let chartLabels = []; let chartValues = []; let chartColors = []; let chartPnlPct = []; bolsaHoldingsArr = []; 
 
-    const uniqueTickers = [...new Set(transactions.map(t => t.ticker))].sort();
-    const currentFilter = chartAssetFilter.value;
-    
-    if (chartAssetFilter.options.length !== uniqueTickers.length + 1) {
-        chartAssetFilter.innerHTML = '<option value="ALL">Total Cartera</option>';
-        uniqueTickers.forEach(t => { const opt = document.createElement('option'); opt.value = t; opt.innerText = t; if (t === currentFilter) opt.selected = true; chartAssetFilter.appendChild(opt); });
-    }
+    const uniqueTickers = [...new Set(transactions.map(t => t.ticker))].sort(); const currentFilter = chartAssetFilter.value;
+    if (chartAssetFilter.options.length !== uniqueTickers.length + 1) { chartAssetFilter.innerHTML = '<option value="ALL">Total Cartera</option>'; uniqueTickers.forEach(t => { const opt = document.createElement('option'); opt.value = t; opt.innerText = t; if (t === currentFilter) opt.selected = true; chartAssetFilter.appendChild(opt); }); }
 
     const sortedTxs = [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date));
     
     sortedTxs.forEach(tx => {
         const isBono = isBonoOrLetra(tx.ticker); const divisor = isBono ? 100 : 1; 
-
         if (!holdings[tx.ticker]) holdings[tx.ticker] = { qty: 0, investedARS: 0, investedUSD: 0, divisor };
         const txMep = getHistoricalMepRate(tx.date);
 
         if (tx.type === "buy") {
-            const cost = ((tx.qty / divisor) * tx.price) + tx.commission;
-            holdings[tx.ticker].qty += tx.qty; holdings[tx.ticker].investedARS += cost; holdings[tx.ticker].investedUSD += (cost / txMep);
+            const cost = ((tx.qty / divisor) * tx.price) + tx.commission; holdings[tx.ticker].qty += tx.qty; holdings[tx.ticker].investedARS += cost; holdings[tx.ticker].investedUSD += (cost / txMep);
         } else if (tx.type === "sell" && holdings[tx.ticker].qty > 0) {
-            const soldQty = Math.min(tx.qty, holdings[tx.ticker].qty);
-            const avgARS = holdings[tx.ticker].investedARS / holdings[tx.ticker].qty; const avgUSD = holdings[tx.ticker].investedUSD / holdings[tx.ticker].qty;
+            const soldQty = Math.min(tx.qty, holdings[tx.ticker].qty); const avgARS = holdings[tx.ticker].investedARS / holdings[tx.ticker].qty; const avgUSD = holdings[tx.ticker].investedUSD / holdings[tx.ticker].qty;
             closedInvestedARS += (avgARS * soldQty); closedInvestedUSD += (avgUSD * soldQty);
-            const proceedsARS = ((soldQty / divisor) * tx.price) - tx.commission;
-            closedProceedsARS += proceedsARS; closedProceedsUSD += (proceedsARS / txMep);
+            const proceedsARS = ((soldQty / divisor) * tx.price) - tx.commission; closedProceedsARS += proceedsARS; closedProceedsUSD += (proceedsARS / txMep);
             holdings[tx.ticker].qty -= soldQty; holdings[tx.ticker].investedARS -= (avgARS * soldQty); holdings[tx.ticker].investedUSD -= (avgUSD * soldQty);
         }
     });
@@ -368,220 +370,124 @@ function renderPortfolio() {
     const filterText = document.getElementById("searchBursatilPortfolio")?.value || "";
     const filteredBolsa = bolsaHoldingsArr.filter(h => matchSearch(h.ticker, filterText));
 
-    let html = filteredBolsa.map(h => `<tr>
-        <td><strong>${h.ticker}</strong></td>
-        <td>${obfuscate(h.qtyStr)}</td>
-        <td>${obfuscate(sym + formatPrecio(isUSD ? h.nativePPC/currentMepRate : h.nativePPC))}</td>
-        <td>${sym}${formatPrecio(isUSD ? h.nativePrice/currentMepRate : h.nativePrice)}</td>
-        <td>${obfuscate(sym + formatMonto(isUSD ? h.currentUSD : h.currentARS))}</td>
-        <td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(isUSD ? h.pnlUSD : h.pnlARS))}</td>
-        <td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>
-    </tr>`).join("");
+    const th1 = document.getElementById("bursaThPnl1"); const th2 = document.getElementById("bursaThPnl2");
+    if (currentTablePeriod === 'ALL') { th1.style.display = ""; th1.innerText = "P/L ($)"; th2.innerText = "P/L (%)"; } 
+    else { th1.style.display = "none"; th2.innerText = `Rend. Mercado (${currentTablePeriod})`; }
+
+    let html = filteredBolsa.map(h => {
+        let pct1D = null;
+        if (livePricesMap[h.ticker] && livePricesMap[h.ticker].pct_change !== undefined && !isUSD) pct1D = parseFloat(livePricesMap[h.ticker].pct_change);
+        else pct1D = getAssetPerformance(h.ticker, '1D');
+        
+        let badgeHtml = '';
+        if (pct1D !== null && !isNaN(pct1D)) {
+            const bClass = pct1D >= 0 ? 'badge-positive' : 'badge-negative';
+            badgeHtml = `<span class="daily-badge ${bClass}">${pct1D > 0 ? '+' : ''}${pct1D.toFixed(2)}%</span>`;
+        }
+
+        let pnlCellHtml = '';
+        if (currentTablePeriod === 'ALL') {
+            pnlCellHtml = `<td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(isUSD ? h.pnlUSD : h.pnlARS))}</td><td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>`;
+        } else {
+            const perf = getAssetPerformance(h.ticker, currentTablePeriod);
+            const perfStr = perf !== null ? (perf > 0 ? '+' : '') + perf.toFixed(2) + '%' : '-';
+            const perfClass = perf !== null ? (perf >= 0 ? 'positive' : 'negative') : 'neutral';
+            pnlCellHtml = `<td colspan="2" style="text-align:center;" class="${perfClass}"><strong>${obfuscate(perfStr)}</strong></td>`;
+        }
+
+        return `<tr>
+            <td><strong>${h.ticker}</strong></td>
+            <td>${obfuscate(h.qtyStr)}</td>
+            <td>${obfuscate(sym + formatPrecio(isUSD ? h.nativePPC/currentMepRate : h.nativePPC))}</td>
+            <td>${sym}${formatPrecio(isUSD ? h.nativePrice/currentMepRate : h.nativePrice)} ${badgeHtml}</td>
+            <td>${obfuscate(sym + formatMonto(isUSD ? h.currentUSD : h.currentARS))}</td>
+            ${pnlCellHtml}
+        </tr>`;
+    }).join("");
     document.getElementById("portfolioResults").innerHTML = html || "<tr><td colspan='7'>Sin activos en cartera</td></tr>";
 
     const dispActiveInv = isUSD ? activeInvestedUSD : activeInvestedARS; const dispActiveCur = isUSD ? activeCurrentUSD : activeCurrentARS; const dispActivePNL = dispActiveCur - dispActiveInv;
-    document.getElementById("activeInvested").innerText = obfuscate(sym + formatMontoEntero(dispActiveInv)); 
-    document.getElementById("activeCurrent").innerText = obfuscate(sym + formatMontoEntero(dispActiveCur)); 
-    document.getElementById("activePNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispActivePNL)} (${(dispActiveInv > 0 ? (dispActivePNL / dispActiveInv * 100) : 0).toFixed(2)}%)`); 
-    document.getElementById("activePNL").className = dispActivePNL >= 0 ? "positive" : "negative";
+    document.getElementById("activeInvested").innerText = obfuscate(sym + formatMontoEntero(dispActiveInv)); document.getElementById("activeCurrent").innerText = obfuscate(sym + formatMontoEntero(dispActiveCur)); document.getElementById("activePNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispActivePNL)} (${(dispActiveInv > 0 ? (dispActivePNL / dispActiveInv * 100) : 0).toFixed(2)}%)`); document.getElementById("activePNL").className = dispActivePNL >= 0 ? "positive" : "negative";
 
     const dispClosedInv = isUSD ? closedInvestedUSD : closedInvestedARS; const dispClosedCur = isUSD ? closedProceedsUSD : closedProceedsARS; const dispClosedPNL = dispClosedCur - dispClosedInv;
-    document.getElementById("closedInvested").innerText = obfuscate(sym + formatMontoEntero(dispClosedInv)); 
-    document.getElementById("closedCurrent").innerText = obfuscate(sym + formatMontoEntero(dispClosedCur)); 
-    document.getElementById("closedPNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispClosedPNL)} (${(dispClosedInv > 0 ? (dispClosedPNL / dispClosedInv * 100) : 0).toFixed(2)}%)`); 
-    document.getElementById("closedPNL").className = dispClosedPNL >= 0 ? "positive" : "negative";
+    document.getElementById("closedInvested").innerText = obfuscate(sym + formatMontoEntero(dispClosedInv)); document.getElementById("closedCurrent").innerText = obfuscate(sym + formatMontoEntero(dispClosedCur)); document.getElementById("closedPNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispClosedPNL)} (${(dispClosedInv > 0 ? (dispClosedPNL / dispClosedInv * 100) : 0).toFixed(2)}%)`); document.getElementById("closedPNL").className = dispClosedPNL >= 0 ? "positive" : "negative";
 
     const dispTotalInv = dispActiveInv + dispClosedInv; const dispTotalCur = dispActiveCur + dispClosedCur; const dispTotalPNL = dispTotalCur - dispTotalInv;
-    document.getElementById("totalInvested").innerText = obfuscate(sym + formatMontoEntero(dispTotalInv)); 
-    document.getElementById("totalCurrent").innerText = obfuscate(sym + formatMontoEntero(dispTotalCur)); 
-    document.getElementById("totalPNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispTotalPNL)} (${(dispTotalInv > 0 ? (dispTotalPNL / dispTotalInv * 100) : 0).toFixed(2)}%)`); 
-    document.getElementById("totalPNL").className = dispTotalPNL >= 0 ? "positive" : "negative";
+    document.getElementById("totalInvested").innerText = obfuscate(sym + formatMontoEntero(dispTotalInv)); document.getElementById("totalCurrent").innerText = obfuscate(sym + formatMontoEntero(dispTotalCur)); document.getElementById("totalPNL").innerText = obfuscate(`${sym}${formatMontoEntero(dispTotalPNL)} (${(dispTotalInv > 0 ? (dispTotalPNL / dispTotalInv * 100) : 0).toFixed(2)}%)`); document.getElementById("totalPNL").className = dispTotalPNL >= 0 ? "positive" : "negative";
 
     updateCharts(chartLabels, chartValues, chartPnlPct, chartColors);
 }
 
 const toggleNominal = document.getElementById("toggleNominal"); const togglePct = document.getElementById("togglePct");
 const globalToggleNominal = document.getElementById("globalToggleNominal"); const globalTogglePct = document.getElementById("globalTogglePct");
-function applyChartVisibility() { if (lineChartInstance) { lineChartInstance.data.datasets[0].hidden = !toggleNominal.checked; lineChartInstance.options.scales.y.display = toggleNominal.checked; lineChartInstance.data.datasets[1].hidden = !togglePct.checked; lineChartInstance.options.scales.y1.display = togglePct.checked; lineChartInstance.update(); } }
-function applyGlobalChartVisibility() { if (globalLineChartInstance) { globalLineChartInstance.data.datasets[0].hidden = !globalToggleNominal.checked; globalLineChartInstance.options.scales.y.display = globalToggleNominal.checked; globalLineChartInstance.data.datasets[1].hidden = !globalTogglePct.checked; globalLineChartInstance.options.scales.y1.display = globalTogglePct.checked; globalLineChartInstance.update(); } }
+function applyChartVisibility() { if (lineChartInstance && lineChartInstance.ctx) { lineChartInstance.data.datasets[0].hidden = !toggleNominal.checked; lineChartInstance.options.scales.y.display = toggleNominal.checked; lineChartInstance.data.datasets[1].hidden = !togglePct.checked; lineChartInstance.options.scales.y1.display = togglePct.checked; lineChartInstance.update(); } }
+function applyGlobalChartVisibility() { if (globalLineChartInstance && globalLineChartInstance.ctx) { globalLineChartInstance.data.datasets[0].hidden = !globalToggleNominal.checked; globalLineChartInstance.options.scales.y.display = globalToggleNominal.checked; globalLineChartInstance.data.datasets[1].hidden = !globalTogglePct.checked; globalLineChartInstance.options.scales.y1.display = globalTogglePct.checked; globalLineChartInstance.update(); } }
 
 toggleNominal.addEventListener("change", applyChartVisibility); togglePct.addEventListener("change", applyChartVisibility);
 globalToggleNominal.addEventListener("change", applyGlobalChartVisibility); globalTogglePct.addEventListener("change", applyGlobalChartVisibility);
 
 async function updateCharts(labels, values, pnlPcts, colors) {
-    if (pieChartInstance) { 
-        pieChartInstance.data.labels = labels; 
-        pieChartInstance.data.datasets[0].data = values; 
-        pieChartInstance.update(); 
-    } else { 
-        pieChartInstance = new Chart(document.getElementById('pieChart'), { 
-            type: 'doughnut', 
-            plugins: [ChartDataLabels], 
-            data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, 
-            options: { 
-                responsive: true,
-                maintainAspectRatio: false, 
-                plugins: { 
-                    tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } },
-                    legend: { position: 'right', labels: {color: '#fff'} }, 
-                    datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } 
-                } 
-            } 
-        }); 
-    }
+    if (pieChartInstance) { pieChartInstance.data.labels = labels; pieChartInstance.data.datasets[0].data = values; pieChartInstance.update(); } 
+    else { pieChartInstance = new Chart(document.getElementById('pieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } }, legend: { position: 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
     
-    if (barChartInstance) { 
-        barChartInstance.data.labels = labels; 
-        barChartInstance.data.datasets[0].data = pnlPcts; 
-        barChartInstance.data.datasets[0].backgroundColor = colors; 
-        barChartInstance.update(); 
-    } else { 
-        barChartInstance = new Chart(document.getElementById('barChart'), { 
-            type: 'bar', 
-            plugins: [ChartDataLabels], 
-            data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, 
-            options: { 
-                responsive: true,
-                maintainAspectRatio: false, 
-                indexAxis: 'y', 
-                scales: { 
-                    y: { ticks: { autoSkip: false }, grid: { display: false } },
-                    x: { grid: { color: '#1f2937' } }
-                },
-                plugins: { 
-                    legend: { display: false }, 
-                    datalabels: { 
-                        color: '#fff', 
-                        font: { size: 11, weight: 'bold' }, 
-                        display: function(ctx) { return ctx.chart.data.labels.length <= 12; }, 
-                        formatter: v => v.toFixed(1) + '%' 
-                    } 
-                } 
-            } 
-        }); 
-    }
+    if (barChartInstance) { barChartInstance.data.labels = labels; barChartInstance.data.datasets[0].data = pnlPcts; barChartInstance.data.datasets[0].backgroundColor = colors; barChartInstance.update(); } 
+    else { barChartInstance = new Chart(document.getElementById('barChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { y: { ticks: { autoSkip: false }, grid: { display: false } }, x: { grid: { color: '#1f2937' } } }, plugins: { legend: { display: false }, datalabels: { color: '#fff', font: { size: 11, weight: 'bold' }, display: function(ctx) { return ctx.chart.data.labels.length <= 12; }, formatter: v => v.toFixed(1) + '%' } } } }); }
+    
     const filterVal = document.getElementById("chartAssetFilter").value; const filteredTxs = filterVal === 'ALL' ? [...transactions] : transactions.filter(t => t.ticker === filterVal);
-    
+    const myDrawId = ++bolsaDrawId;
     drawHistoricalChart(filteredTxs, lineChartInstance, isUSD, currentMepRate, historicalMepRates, livePricesMap, 'lineChart')
-        .then(chart => {
-            if(chart) {
-                lineChartInstance = chart;
-                applyChartVisibility();
-            }
-        }).catch(e => console.error("Error cargando histórico:", e));
+        .then(chart => { if (myDrawId !== bolsaDrawId) { if (chart) chart.destroy(); return; } if(chart) { lineChartInstance = chart; applyChartVisibility(); } }).catch(e => console.error("Error cargando histórico:", e));
 }
 
 function renderHistory() {
     const sym = isUSD ? "u$s " : "$ ";
     const filterText = document.getElementById("searchBursatilHistory")?.value || "";
     const filteredTxs = transactions.filter(tx => matchSearch(`${tx.ticker} ${tx.type}`, filterText));
-    
-    historyResults.innerHTML = filteredTxs.map(tx => `<tr>
-        <td>${tx.date}</td>
-        <td><strong>${tx.ticker}</strong></td>
-        <td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Compra':'Venta'}</td>
-        <td>${obfuscate(tx.qty)}</td>
-        <td>${obfuscate(sym + formatPrecio(tx.price))}</td>
-        <td>${obfuscate(sym + formatMonto(tx.commission))}</td>
-        <td><div class="action-buttons"><button class="btn-edit" data-id="${tx.id}">Editar</button><button class="btn-delete" data-id="${tx.id}">X</button></div></td>
-    </tr>`).join("");
+    historyResults.innerHTML = filteredTxs.map(tx => `<tr><td>${tx.date}</td><td><strong>${tx.ticker}</strong></td><td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Compra':'Venta'}</td><td>${obfuscate(tx.qty)}</td><td>${obfuscate(sym + formatPrecio(tx.price))}</td><td>${obfuscate(sym + formatMonto(tx.commission))}</td><td><div class="action-buttons"><button class="btn-edit" data-id="${tx.id}">Editar</button><button class="btn-delete" data-id="${tx.id}">X</button></div></td></tr>`).join("");
 }
 
 historyResults.addEventListener("click", (e) => {
     const target = e.target;
-    if (target.classList.contains("btn-delete")) {
-        const idToProcess = target.dataset.id;
-        if(confirm("¿Eliminar transacción?")) { transactions = transactions.filter(t => String(t.id) !== String(idToProcess)); localStorage.setItem('bolsa_transactions', JSON.stringify(transactions)); renderHistory(); renderPortfolio(); }
-    } else if (target.classList.contains("btn-edit")) {
-        const idToProcess = target.dataset.id; const tx = transactions.find(t => String(t.id) === String(idToProcess));
-        if(tx) { editingId = tx.id; document.getElementById("txTicker").value = tx.ticker; document.getElementById("txType").value = tx.type; document.getElementById("txQty").value = tx.qty; document.getElementById("txPrice").value = tx.price; document.getElementById("txComision").value = tx.commission || ""; document.getElementById("txDate").value = tx.date; document.getElementById("formTitle").innerText = "Editando Transacción"; document.getElementById("btnCancelEdit").style.display = "block"; openModal(); }
-    }
+    if (target.classList.contains("btn-delete")) { const idToProcess = target.dataset.id; if(confirm("¿Eliminar transacción?")) { transactions = transactions.filter(t => String(t.id) !== String(idToProcess)); localStorage.setItem('bolsa_transactions', JSON.stringify(transactions)); renderHistory(); renderPortfolio(); } } 
+    else if (target.classList.contains("btn-edit")) { const idToProcess = target.dataset.id; const tx = transactions.find(t => String(t.id) === String(idToProcess)); if(tx) { editingId = tx.id; document.getElementById("txTicker").value = tx.ticker; document.getElementById("txType").value = tx.type; document.getElementById("txQty").value = tx.qty; document.getElementById("txPrice").value = tx.price; document.getElementById("txComision").value = tx.commission || ""; document.getElementById("txDate").value = tx.date; document.getElementById("formTitle").innerText = "Editando Transacción"; document.getElementById("btnCancelEdit").style.display = "block"; openModal(); } }
 });
 
 function renderMarketTable() {
-    const sym = isUSD ? "u$s " : "$ "; 
-    const search = document.getElementById("searchInput").value.toLowerCase();
-    const activeCategory = document.querySelector(".categories .category.active")?.dataset.category || "all";
-
-    marketResults.innerHTML = instruments.filter(i => {
-        if (!i.symbol) return false;
-        const matchSearch = i.symbol.toLowerCase().includes(search);
-        const matchCat = activeCategory === "all" || i.assetType === activeCategory;
-        return matchSearch && matchCat;
-    }).map(item => { 
-        const p = isUSD ? parseFloat(item.c) / currentMepRate : parseFloat(item.c); 
-        return `<tr>
-            <td>${item.symbol}</td>
-            <td>${sym}${formatPrecio(p)}</td>
-            <td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td>
-            <td>${formatMontoEntero(parseFloat(item.v))}</td>
-            <td>${formatPrecio(parseFloat(item.px_bid))}</td>
-            <td>${formatPrecio(parseFloat(item.px_ask))}</td>
-        </tr>`; 
-    }).join("");
+    const sym = isUSD ? "u$s " : "$ "; const search = document.getElementById("searchInput").value.toLowerCase(); const activeCategory = document.querySelector(".categories .category.active")?.dataset.category || "all";
+    marketResults.innerHTML = instruments.filter(i => { if (!i.symbol) return false; const matchSearch = i.symbol.toLowerCase().includes(search); const matchCat = activeCategory === "all" || i.assetType === activeCategory; return matchSearch && matchCat; }).map(item => { const p = isUSD ? parseFloat(item.c) / currentMepRate : parseFloat(item.c); return `<tr><td>${item.symbol}</td><td>${sym}${formatPrecio(p)}</td><td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td><td>${formatMontoEntero(parseFloat(item.v))}</td><td>${formatPrecio(parseFloat(item.px_bid))}</td><td>${formatPrecio(parseFloat(item.px_ask))}</td></tr>`; }).join("");
 }
 
-document.getElementById("searchInput").addEventListener("keyup", renderMarketTable); 
+document.getElementById("searchInput").addEventListener("input", renderMarketTable); 
 document.getElementById("btnCancelEdit").onclick = closeModal;
 
-document.querySelectorAll(".categories .category").forEach(btn => {
-    btn.addEventListener("click", () => {
-        document.querySelectorAll(".categories .category").forEach(el => el.classList.remove("active"));
-        btn.classList.add("active");
-        renderMarketTable(); 
-    });
-});
+document.querySelectorAll(".categories .category").forEach(btn => { btn.addEventListener("click", () => { document.querySelectorAll(".categories .category").forEach(el => el.classList.remove("active")); btn.classList.add("active"); renderMarketTable(); }); });
 
-currencySwitch.addEventListener("change", (e) => { 
-    isUSD = e.target.checked; 
-    if (isUSD) {
-        labelARS.classList.remove("active-currency");
-        labelUSD.classList.add("active-currency");
-    } else {
-        labelARS.classList.add("active-currency");
-        labelUSD.classList.remove("active-currency");
-    }
-    renderPortfolio(); renderHistory(); renderMarketTable(); renderFciPortfolio(); renderFciHistory(); 
-});
+currencySwitch.addEventListener("change", (e) => { isUSD = e.target.checked; if (isUSD) { labelARS.classList.remove("active-currency"); labelUSD.classList.add("active-currency"); } else { labelARS.classList.add("active-currency"); labelUSD.classList.remove("active-currency"); } renderPortfolio(); renderHistory(); renderMarketTable(); renderFciPortfolio(); renderFciHistory(); });
 
-chartAssetFilter.addEventListener("change", renderPortfolio);
-globalChartAssetFilter.addEventListener("change", renderGlobalPortfolio);
-
+chartAssetFilter.addEventListener("change", renderPortfolio); globalChartAssetFilter.addEventListener("change", renderGlobalPortfolio);
 document.getElementById("searchGlobalPortfolio")?.addEventListener("input", () => renderGlobalPortfolio());
 document.getElementById("searchBursatilPortfolio")?.addEventListener("input", renderPortfolio);
 document.getElementById("searchBursatilHistory")?.addEventListener("input", renderHistory);
 
-document.querySelectorAll(".tab-btn").forEach(btn => { 
-    btn.addEventListener("click", () => { 
-        document.querySelectorAll(".tab-btn, .view-section").forEach(el => el.classList.remove("active")); 
-        btn.classList.add("active"); document.getElementById(btn.dataset.target).classList.add("active"); 
-        if(btn.dataset.target === "usaScannerView") initScanner(); 
-        if(btn.dataset.target === "fciView") initFCI();
-    }); 
-});
+document.querySelectorAll(".tab-btn").forEach(btn => { btn.addEventListener("click", () => { document.querySelectorAll(".tab-btn, .view-section").forEach(el => el.classList.remove("active")); btn.classList.add("active"); document.getElementById(btn.dataset.target).classList.add("active"); if(btn.dataset.target === "usaScannerView") initScanner(); if(btn.dataset.target === "fciView") initFCI(); }); });
 
 document.getElementById("btnExport").addEventListener("click", () => {
     if (transactions.length === 0) { alert("No hay transacciones para exportar."); return; }
-    let csvContent = "\uFEFFid;ticker;type;qty;price;commission;date\n";
-    transactions.forEach(t => { const pTxt = t.price.toString().replace('.', ','); const cTxt = t.commission.toString().replace('.', ','); csvContent += `${t.id};${t.ticker};${t.type};${t.qty};${pTxt};${cTxt};${t.date}\n`; });
-    const hoy = new Date(); const fechaTxt = hoy.toISOString().split('T')[0];
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.setAttribute("href", url); link.setAttribute("download", `skyline_transacciones_${fechaTxt}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    let csvContent = "\uFEFFid;ticker;type;qty;price;commission;date\n"; transactions.forEach(t => { const pTxt = t.price.toString().replace('.', ','); const cTxt = t.commission.toString().replace('.', ','); csvContent += `${t.id};${t.ticker};${t.type};${t.qty};${pTxt};${cTxt};${t.date}\n`; });
+    const hoy = new Date(); const fechaTxt = hoy.toISOString().split('T')[0]; const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.setAttribute("href", url); link.setAttribute("download", `skyline_transacciones_${fechaTxt}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
 });
 
 const btnImport = document.getElementById("btnImport"); const fileImport = document.getElementById("fileImport");
 btnImport.addEventListener("click", () => fileImport.click()); 
 fileImport.addEventListener("change", (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
+    const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
     reader.onload = function(event) {
         const text = event.target.result; const lines = text.replace(/\r/g, "").split("\n").filter(line => line.trim() !== "");
-        if (lines.length <= 1) { alert("Archivo vacío o formato incorrecto."); return; }
-        let importedTxs = [];
+        if (lines.length <= 1) { alert("Archivo vacío o formato incorrecto."); return; } let importedTxs = [];
         for (let i = 1; i < lines.length; i++) {
             const separador = lines[i].includes(";") ? ";" : ","; const cols = lines[i].split(separador);
             if (cols.length >= 7) {
-                let rawDate = cols[6].trim(); let parsedDate = rawDate;
-                if (rawDate.includes('/')) { let p = rawDate.split('/'); if (p.length === 3) parsedDate = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`; }
+                let rawDate = cols[6].trim(); let parsedDate = rawDate; if (rawDate.includes('/')) { let p = rawDate.split('/'); if (p.length === 3) parsedDate = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`; }
                 importedTxs.push({ id: cols[0].trim(), ticker: cols[1].trim().toUpperCase(), type: cols[2].trim().toLowerCase().includes("sell") ? "sell" : "buy", qty: Math.abs(parseInt(cols[3].replace(/,/g, '.'))), price: parseFloat(cols[4].replace(/,/g, '.')), commission: parseFloat(cols[5].replace(/,/g, '.')) || 0, date: parsedDate });
             }
         }
@@ -589,8 +495,7 @@ fileImport.addEventListener("change", (e) => {
             if (confirm(`Se leyeron ${importedTxs.length} transacciones.\n\n¿REEMPLAZAR tu cartera actual?`)) { transactions = importedTxs; } 
             else { const existingIds = new Set(transactions.map(t => String(t.id))); importedTxs.forEach(t => { if (existingIds.has(String(t.id))) t.id = Date.now() + Math.random(); transactions.push(t); }); }
             localStorage.setItem('bolsa_transactions', JSON.stringify(transactions)); renderHistory(); renderPortfolio(); alert("¡Importado con éxito!");
-        } else alert("Revisá el formato del archivo.");
-        fileImport.value = ""; 
+        } else alert("Revisá el formato del archivo."); fileImport.value = ""; 
     }; reader.readAsText(file);
 });
 

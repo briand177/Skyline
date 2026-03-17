@@ -71,7 +71,17 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3>Mis Tenencias (Globales)</h3>
-                    <input type="search" id="searchGlobalPortfolio" class="filter-input" placeholder="Filtrar activo..." autocomplete="off">
+                    <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
+                        <div class="time-filters">
+                            <button class="time-btn" data-period="1D">1D</button>
+                            <button class="time-btn" data-period="1M">1M</button>
+                            <button class="time-btn" data-period="6M">6M</button>
+                            <button class="time-btn" data-period="YTD">YTD</button>
+                            <button class="time-btn" data-period="1Y">1Y</button>
+                            <button class="time-btn active" data-period="ALL">Total</button>
+                        </div>
+                        <input type="search" id="searchGlobalPortfolio" class="filter-input" placeholder="Filtrar activo..." autocomplete="off">
+                    </div>
                 </div>
                 <table>
                     <thead>
@@ -81,8 +91,8 @@
                             <th>PPC</th>
                             <th>Precio Actual</th>
                             <th>Valor Actual</th>
-                            <th>P/L ($)</th>
-                            <th>P/L (%)</th>
+                            <th id="globalThPnl1">P/L ($)</th>
+                            <th id="globalThPnl2">P/L (%)</th>
                         </tr>
                     </thead>
                     <tbody id="globalPortfolioResults"></tbody>
@@ -161,7 +171,17 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3>Mis Tenencias Bursátiles</h3>
-                    <input type="search" id="searchBursatilPortfolio" class="filter-input" placeholder="Filtrar ticker..." autocomplete="off">
+                    <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
+                        <div class="time-filters">
+                            <button class="time-btn" data-period="1D">1D</button>
+                            <button class="time-btn" data-period="1M">1M</button>
+                            <button class="time-btn" data-period="6M">6M</button>
+                            <button class="time-btn" data-period="YTD">YTD</button>
+                            <button class="time-btn" data-period="1Y">1Y</button>
+                            <button class="time-btn active" data-period="ALL">Total</button>
+                        </div>
+                        <input type="search" id="searchBursatilPortfolio" class="filter-input" placeholder="Filtrar ticker..." autocomplete="off">
+                    </div>
                 </div>
                 <table>
                     <thead>
@@ -171,8 +191,8 @@
                             <th>PPC</th>
                             <th>Precio Actual</th>
                             <th>Valor Actual</th>
-                            <th>P/L ($)</th>
-                            <th>P/L (%)</th>
+                            <th id="bursaThPnl1">P/L ($)</th>
+                            <th id="bursaThPnl2">P/L (%)</th>
                         </tr>
                     </thead>
                     <tbody id="portfolioResults"></tbody>
@@ -252,7 +272,17 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3>Mis Tenencias FCI</h3>
-                    <input type="search" id="searchFciPortfolio" class="filter-input" placeholder="Filtrar fondo..." autocomplete="off">
+                    <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
+                        <div class="time-filters">
+                            <button class="time-btn" data-period="1D">1D</button>
+                            <button class="time-btn" data-period="1M">1M</button>
+                            <button class="time-btn" data-period="6M">6M</button>
+                            <button class="time-btn" data-period="YTD">YTD</button>
+                            <button class="time-btn" data-period="1Y">1Y</button>
+                            <button class="time-btn active" data-period="ALL">Total</button>
+                        </div>
+                        <input type="search" id="searchFciPortfolio" class="filter-input" placeholder="Filtrar fondo..." autocomplete="off">
+                    </div>
                 </div>
                 <table>
                     <thead>
@@ -263,8 +293,8 @@
                             <th>PPC</th>
                             <th>Precio Actual</th>
                             <th>Valor Actual</th>
-                            <th>P/L ($)</th>
-                            <th>P/L (%)</th>
+                            <th id="fciThPnl1">P/L ($)</th>
+                            <th id="fciThPnl2">P/L (%)</th>
                         </tr>
                     </thead>
                     <tbody id="fciPortfolioResults"></tbody>
@@ -518,7 +548,15 @@
                 </div>
             </div>
 
-            <button id="btnFloatingCompare" class="btn-submit" style="display:none; position:fixed; bottom:30px; right:30px; z-index:100; box-shadow: 0 4px 15px rgba(0,247,255,0.3); font-size: 16px; padding: 15px 25px; border-radius: 25px;">⚖️ Comparar (0/3)</button>
+          <div id="floatingComparePanel" class="floating-compare-panel" style="display:none;">
+                <div class="compare-header">
+                    <span style="font-weight: bold; color: #00f7ff;">⚖️ Comparar (<span id="compareCount">0</span>/3)</span>
+                    <button id="btnClearCompare" class="btn-clear-all" title="Borrar todos">Borrar Todos</button>
+                </div>
+                <div id="compareTagsContainer" class="compare-tags">
+                    </div>
+                <button id="btnGoToCompare" class="btn-submit" style="width: 100%; margin-top: 10px; border-radius: 8px; padding: 10px;">Ir al Comparador ➡️</button>
+            </div>
 
             <div id="scannerDetailView" style="display: none;">
                 <button id="btnBackToScanner" class="btn-action" style="margin-bottom: 20px;">⬅ Volver al listado</button>
@@ -541,23 +579,6 @@
         </div>
 
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('input[type="search"]').forEach(input => {
-                input.addEventListener('input', function() {
-                    // Cuando tocás la 'X' se vacía el campo y dispara el evento 'input'
-                    if (this.value === '') {
-                        this.dispatchEvent(new Event('keyup'));
-                    }
-                });
-                input.addEventListener('search', function() {
-                    // Algunos navegadores usan el evento 'search' para la X
-                    this.dispatchEvent(new Event('keyup'));
-                });
-            });
-        });
-    </script>
     <script type="module" src="./app.js"></script>
     <script type="module" src="./fci.js"></script>
     <script type="module" src="./scanner.js"></script>

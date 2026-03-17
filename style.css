@@ -305,3 +305,81 @@ input[type="search"]::-webkit-search-cancel-button {
 input[type="search"]::-webkit-search-cancel-button:hover {
     opacity: 1;
 }
+
+/* --- FILTROS DE TIEMPO PARA TABLAS --- */
+.time-filters { display: flex; gap: 5px; background: #111827; padding: 4px; border-radius: 8px; border: 1px solid #1f2937; flex-wrap: wrap; }
+.time-btn { background: transparent; color: #9ca3af; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s; }
+.time-btn:hover { color: #fff; }
+.time-btn.active { background: #374151; color: #00f7ff; }
+
+/* --- BURBUJA VARIACIÓN DIARIA (1D) --- */
+.daily-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: bold; vertical-align: middle; }
+.badge-positive { background: rgba(0, 255, 0, 0.1); color: #00ff00; border: 1px solid rgba(0, 255, 0, 0.2); }
+.badge-negative { background: rgba(255, 0, 68, 0.1); color: #ff0044; border: 1px solid rgba(255, 0, 68, 0.2); }
+
+
+/* --- PANEL FLOTANTE DEL COMPARADOR --- */
+.floating-compare-panel {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #0b0f1a;
+    border: 1px solid #00f7ff;
+    border-radius: 12px;
+    padding: 15px;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0, 247, 255, 0.2);
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.compare-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px; /* <--- Esto fuerza la separación mínima */
+    border-bottom: 1px solid #1f2937;
+    padding-bottom: 8px;
+    margin-bottom: 5px;
+}
+.btn-clear-all {
+    background: transparent;
+    color: #ff0044;
+    border: 1px solid #ff0044;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: 0.2s;
+    font-weight: bold;
+}
+.btn-clear-all:hover {
+    background: rgba(255, 0, 68, 0.1);
+}
+.compare-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.compare-tag {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #111827;
+    border: 1px solid #374151;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+.remove-tag-btn {
+    color: #9ca3af;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
+    padding: 0 5px;
+}
+.remove-tag-btn:hover {
+    color: #ff0044;
+    transform: scale(1.2);
+}

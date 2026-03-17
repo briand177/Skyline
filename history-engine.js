@@ -1,6 +1,6 @@
 import { CONFIG } from "./config.js";
 
-const historicalPricesCache = {};
+export const historicalPricesCache = {};
 let lastFetchTime = 0;
 
 async function fetchWithTimeout(url, options = {}, timeout = 5000) {
@@ -18,10 +18,6 @@ async function fetchWithTimeout(url, options = {}, timeout = 5000) {
 
 export async function drawHistoricalChart(transactions, lineChartInstance, isUSD, currentMepRate, historicalMepRates, livePricesMap, canvasId = 'lineChart') {
     
-    // DESTRUCCIÓN SEGURA SIEMPRE AL INICIO DE LA FUNCIÓN
-    const existingChart = Chart.getChart(canvasId);
-    if (existingChart) existingChart.destroy();
-
     if (!transactions || transactions.length === 0) return null;
 
     const sym = isUSD ? "u$s " : "$ ";
@@ -70,13 +66,21 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
             if (!json.chart || !json.chart.result) return null; 
 
             const timestamps = json.chart.result[0].timestamp;
-            const closePrices = json.chart.result[0].indicators.quote[0].close;
+            const indicators = json.chart.result[0].indicators;
+            
+            // CORRECCIÓN VITAL 1: Usar Adjusted Close para contemplar Splits y Dividendos
+            let targetPrices = [];
+            if (indicators.adjclose && indicators.adjclose[0] && indicators.adjclose[0].adjclose) {
+                targetPrices = indicators.adjclose[0].adjclose;
+            } else {
+                targetPrices = indicators.quote[0].close; // Fallback solo si no hay adjclose
+            }
             
             let result = {};
             for (let i = 0; i < timestamps.length; i++) {
-                if (closePrices[i] !== null) {
+                if (targetPrices[i] !== null && targetPrices[i] !== undefined) {
                     const dateObj = new Date(timestamps[i] * 1000);
-                    result[dateObj.toISOString().split('T')[0]] = closePrices[i];
+                    result[dateObj.toISOString().split('T')[0]] = targetPrices[i];
                 }
             }
             return Object.keys(result).length > 0 ? result : null;
@@ -90,7 +94,6 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
     
     if (missingTickers.length > 0 || now - lastFetchTime > 3600000) { 
         
-        // FILTRO SILENCIOSO: Evitamos mandar los Fondos Comunes a Yahoo para no ver el Error 404
         const validTickersForYahoo = missingTickers.filter(t => !t.includes(" - ") && !t.includes("Clase"));
 
         await Promise.all(validTickersForYahoo.map(async (ticker) => {
@@ -167,11 +170,6 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
     let closedInvestedARS = 0; let closedInvestedUSD = 0;
     let lastKnownPrices = {}; 
     
-    let firstBuyDate = {};
-    sortedTxs.forEach(tx => {
-        if (!firstBuyDate[tx.ticker]) firstBuyDate[tx.ticker] = tx.date;
-    });
-
     for (let d = new Date(firstDate); d <= chartEndDate; d.setDate(d.getDate() + 1)) {
         let dateStr = d.toISOString().split('T')[0];
         let dailyMep = getMep(dateStr);
@@ -213,35 +211,35 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
                 activeInvestedUSD += currentHoldings[t].investedUSD;
                 
                 const actualDivisor = currentHoldings[t].divisor;
-                let livePriceARS = currentHoldings[t].investedARS / (currentHoldings[t].qty / actualDivisor);
-                if (livePricesMap && livePricesMap[t] && livePricesMap[t].c) {
-                    livePriceARS = parseFloat(livePricesMap[t].c);
-                }
+                let priceTodayARS = 0;
 
-                let priceTodayARS = livePriceARS;
                 const cacheT = historicalPricesCache[t];
-                const cacheKeys = cacheT ? Object.keys(cacheT) : [];
                 
-                if (cacheKeys.length > 0) {
-                    let lastYahoo = cacheT[cacheKeys[cacheKeys.length - 1]];
-                    let scaleRatio = (livePriceARS > 0 && lastYahoo > 0) ? (livePriceARS / lastYahoo) : 1;
-                    
+                if (cacheT && Object.keys(cacheT).length > 0) {
                     let rawYahoo = cacheT[dateStr];
+                    
+                    // CORRECCIÓN VITAL 2: Si no hay dato hoy (feriado/finde), usamos el último válido. NO interpolamos.
                     if (!rawYahoo) rawYahoo = lastKnownPrices[t]; 
                     
                     if (rawYahoo) {
                         lastKnownPrices[t] = rawYahoo;
+                        
+                        // Pequeño factor de escala para suavizar el empalme del histórico con el precio real actual
+                        let livePriceNow = livePricesMap && livePricesMap[t] && livePricesMap[t].c ? parseFloat(livePricesMap[t].c) : null;
+                        let lastYahooTotal = cacheT[Object.keys(cacheT).sort().pop()];
+                        let scaleRatio = (livePriceNow && lastYahooTotal > 0) ? (livePriceNow / lastYahooTotal) : 1;
+                        
                         priceTodayARS = rawYahoo * scaleRatio;
+                    } else {
+                        // Si literalmente el gráfico empezó hoy y aún no hay histórico
+                        priceTodayARS = currentHoldings[t].investedARS / (currentHoldings[t].qty / actualDivisor);
                     }
                 } else {
-                    let startD = new Date(`${firstBuyDate[t]}T12:00:00`);
-                    let daysTotal = (chartEndDate - startD) / 86400000 || 1;
-                    let daysElapsed = (d - startD) / 86400000;
-                    let progress = Math.max(0, Math.min(1, daysElapsed / daysTotal));
-                    let startPrice = currentHoldings[t].investedARS / (currentHoldings[t].qty / actualDivisor);
-                    priceTodayARS = startPrice + (livePriceARS - startPrice) * progress;
+                    // Si la API falló catastróficamente o es un activo no listado, el valor es su costo promedio.
+                    priceTodayARS = currentHoldings[t].investedARS / (currentHoldings[t].qty / actualDivisor);
                 }
 
+                // Si estamos evaluando el "Día de hoy", forzamos el precio de mercado exacto
                 if (dateStr === today.toISOString().split('T')[0] && livePricesMap && livePricesMap[t] && livePricesMap[t].c) {
                     priceTodayARS = parseFloat(livePricesMap[t].c);
                 }
@@ -268,6 +266,9 @@ export async function drawHistoricalChart(transactions, lineChartInstance, isUSD
     const ctx = document.getElementById(canvasId);
     if(!ctx) return null;
     
+    const existingChart = Chart.getChart(canvasId);
+    if (existingChart) existingChart.destroy();
+
     return new Chart(ctx, {
         type: 'line',
         data: { 

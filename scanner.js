@@ -19,14 +19,13 @@ const scannerFiltersPanel = document.getElementById("scannerFiltersPanel");
 const btnApplyFilters = document.getElementById("btnApplyFilters");
 const btnClearFilters = document.getElementById("btnClearFilters");
 
-const btnFloatingCompare = document.getElementById("btnFloatingCompare");
 const compareTable = document.getElementById("compareTable");
 
 let scannerViewMode = 'fund'; 
 let scannerData = [];
 let hasLoaded = false;
 let compareSelection = [];
-let savedScrollPosition = 0; // Memoria de Scroll
+let savedScrollPosition = 0; 
 
 const CACHE_KEY = 'skyline_sheets_scanner_data';
 const CACHE_EXPIRATION = 12 * 60 * 60 * 1000; 
@@ -38,6 +37,22 @@ function fNum(val) {
     let n = parseFloat(val);
     if (isNaN(n)) return val;
     return parseFloat(n.toFixed(2));
+}
+
+function parseSheetNumber(val) {
+    if (val === undefined || val === null) return null;
+    let str = String(val).replace(/"/g, '').trim();
+    if (str === '' || str === '-' || str === '#N/A') return null;
+    
+    if (str.includes(',')) {
+        str = str.replace(/\./g, '');
+        str = str.replace(/,/g, '.');
+    } else if (str.split('.').length > 2) {
+        str = str.replace(/\./g, '');
+    }
+    
+    const num = parseFloat(str);
+    return isNaN(num) ? null : num;
 }
 
 export async function initScanner(forceRefresh = false) {
@@ -74,15 +89,15 @@ export async function initScanner(forceRefresh = false) {
                 allTickers.push(ticker);
                 rawFundData[ticker] = {
                     tickerGoogle: cols[1] ? cols[1].trim().replace(/"/g, '') : '',
-                    price: parseFloat(cols[2].replace(/"/g, '')) || 0,
+                    price: parseSheetNumber(cols[2]) || 0,
                     name: cols[3] ? cols[3].trim().replace(/"/g, '') : '',
-                    pe: parseFloat(cols[4].replace(/"/g, '')) || null,
-                    eps: parseFloat(cols[5].replace(/"/g, '')) || null,
-                    mcap: parseFloat(cols[6].replace(/"/g, '')) || null,
-                    volAvg: parseFloat(cols[7].replace(/"/g, '')) || null,
-                    yearHigh: parseFloat(cols[8].replace(/"/g, '')) || null,
-                    yearLow: parseFloat(cols[9].replace(/"/g, '')) || null,
-                    beta: parseFloat(cols[10].replace(/"/g, '')) || null
+                    pe: parseSheetNumber(cols[4]),
+                    eps: parseSheetNumber(cols[5]),
+                    mcap: parseSheetNumber(cols[6]),
+                    volAvg: parseSheetNumber(cols[7]),
+                    yearHigh: parseSheetNumber(cols[8]),
+                    yearLow: parseSheetNumber(cols[9]),
+                    beta: parseSheetNumber(cols[10])
                 };
             }
         });
@@ -339,9 +354,7 @@ function renderScanner() {
 }
 
 btnRefreshScanner.addEventListener("click", () => { initScanner(true); });
-// CAMBIADO de "keyup" a "input" para que detecte la cruz (X) nativa
 searchScannerInput.addEventListener("input", renderScanner); 
-
 toggleScannerViewBtn.addEventListener("click", () => {
     if (scannerViewMode === 'tech') {
         scannerViewMode = 'fund'; toggleScannerViewBtn.innerText = "Ver Técnico";
@@ -353,10 +366,29 @@ toggleScannerViewBtn.addEventListener("click", () => {
     renderScanner();
 });
 
+// --- LÓGICA DEL NUEVO PANEL FLOTANTE DE COMPARACIÓN ---
 function updateCompareUI() {
-    btnFloatingCompare.style.display = compareSelection.length > 0 ? "block" : "none";
-    btnFloatingCompare.innerText = `⚖️ Comparar (${compareSelection.length}/3)`;
-    document.querySelectorAll(".compare-cb").forEach(cb => { cb.checked = compareSelection.includes(cb.value); });
+    const floatingPanel = document.getElementById("floatingComparePanel");
+    const countSpan = document.getElementById("compareCount");
+    const tagsContainer = document.getElementById("compareTagsContainer");
+
+    if (compareSelection.length > 0) {
+        floatingPanel.style.display = "flex";
+        countSpan.innerText = compareSelection.length;
+        
+        tagsContainer.innerHTML = compareSelection.map(ticker => `
+            <div class="compare-tag">
+                <strong>${ticker}</strong>
+                <span class="remove-tag-btn" data-ticker="${ticker}" title="Quitar">✕</span>
+            </div>
+        `).join("");
+    } else {
+        floatingPanel.style.display = "none";
+    }
+
+    document.querySelectorAll(".compare-cb").forEach(cb => { 
+        cb.checked = compareSelection.includes(cb.value); 
+    });
 }
 
 function handleCompareCheckbox(e) {
@@ -370,32 +402,51 @@ function handleCompareCheckbox(e) {
 
 document.addEventListener("change", (e) => { if (e.target.classList.contains("compare-cb")) handleCompareCheckbox(e); });
 
-btnFloatingCompare.addEventListener("click", () => {
-    savedScrollPosition = window.scrollY || document.documentElement.scrollTop; // GUARDAR SCROLL
-    buildCompareView();
-    scannerListView.style.display = "none";
-    scannerCompareView.style.display = "block";
-    window.scrollTo(0, 0); // Ir al inicio del comparador
-});
-
-// Botones de retroceso blindados (Atados al Documento para que nunca fallen)
+// Gestión de clics globales (Botones X, Borrar Todos, Ir a comparar y Retroceder)
 document.addEventListener("click", (e) => {
+    // Quitar un activo específico ("X" en el panel flotante)
+    if (e.target.classList.contains("remove-tag-btn")) {
+        const tickerToRemove = e.target.dataset.ticker;
+        compareSelection = compareSelection.filter(t => t !== tickerToRemove);
+        updateCompareUI();
+    }
+
+    // Borrar Todos
+    if (e.target.id === "btnClearCompare") {
+        compareSelection = [];
+        updateCompareUI();
+    }
+
+    // Ir al Comparador
+    if (e.target.id === "btnGoToCompare") {
+        savedScrollPosition = window.scrollY || document.documentElement.scrollTop;
+        buildCompareView();
+        scannerListView.style.display = "none";
+        scannerCompareView.style.display = "block";
+        window.scrollTo(0, 0); 
+    }
+
+    // Volver desde Detalle
     if (e.target.id === "btnBackToScanner" || e.target.closest("#btnBackToScanner")) {
         scannerDetailView.style.display = "none"; 
         scannerListView.style.display = "block";
-        window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }); // RESTAURAR SCROLL
+        setTimeout(() => window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }), 15);
     }
+    
+    // Volver desde Comparador
     if (e.target.id === "btnBackFromCompare" || e.target.closest("#btnBackFromCompare")) {
         scannerCompareView.style.display = "none"; 
         scannerListView.style.display = "block";
-        window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }); // RESTAURAR SCROLL
+        setTimeout(() => window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }), 15);
     }
 });
+// ---------------------------------------------------------
 
 function buildFundTable(data) {
     scannerFundResults.innerHTML = "";
     if (data.length === 0) return;
 
+    document.querySelector("#scannerFundContainer th:nth-child(5)").innerHTML = `Precio Actual`;
     document.querySelector("#scannerFundContainer th:nth-child(6)").innerHTML = `Market Cap (USD) <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en bolsa.<br><br>Large Cap: > $10B<br>Mid Cap: $2B - $10B<br>Small Cap: < $2B</div></div>`;
     document.querySelector("#scannerFundContainer th:nth-child(7)").innerHTML = `PER <div class="tooltip">?<div class="tooltiptext">Años para recuperar la inversión.<br><br><b style="color:#00ff00">Comprar (Barato):</b> < 15<br><b style="color:#ff0044">Vender (Caro):</b> > 25</div></div>`;
     document.querySelector("#scannerFundContainer th:nth-child(8)").innerHTML = `BPA (USD) <div class="tooltip">?<div class="tooltiptext">Beneficio neto por cada acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Gana dinero)<br><b style="color:#ff0044">Vender:</b> < 0 (Da pérdidas)</div></div>`;
@@ -432,6 +483,7 @@ function buildTechTable(data) {
     scannerTechResults.innerHTML = "";
     if (data.length === 0) return;
 
+    document.querySelector("#scannerTechContainer th:nth-child(3)").innerHTML = `Precio Actual`;
     document.querySelector("#scannerTechContainer th:nth-child(4)").innerHTML = `RSI 14 <div class="tooltip">?<div class="tooltiptext">Índice de Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div>`;
     document.querySelector("#scannerTechContainer th:nth-child(5)").innerHTML = `MACD <div class="tooltip">?<div class="tooltiptext">Convergencia/Divergencia de Medias.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Fuerza alcista)<br><b style="color:#ff0044">Vender:</b> < 0 (Fuerza bajista)</div></div>`;
     document.querySelector("#scannerTechContainer th:nth-child(6)").innerHTML = `Stoch %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico.<br><br><b style="color:#00ff00">Comprar:</b> < 20 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 80 (Sobrecompra)</div></div>`;
@@ -467,7 +519,10 @@ function buildTechTable(data) {
 document.addEventListener("click", (e) => { 
     if (e.target.classList.contains("clickable-cell")) { 
         const row = e.target.closest('.scanner-row'); 
-        if (row && row.dataset.ticker) showAssetDetail(row.dataset.ticker); 
+        if (row && row.dataset.ticker) {
+            savedScrollPosition = window.scrollY || document.documentElement.scrollTop;
+            showAssetDetail(row.dataset.ticker); 
+        }
     }
 });
 
@@ -557,11 +612,9 @@ function showAssetDetail(ticker) {
     const item = scannerData.find(d => d.ticker === ticker);
     if (!item) return;
 
-    savedScrollPosition = window.scrollY || document.documentElement.scrollTop; // GUARDAR SCROLL AQUI
-
     scannerListView.style.display = "none";
     scannerDetailView.style.display = "block";
-    window.scrollTo(0, 0); // Al entrar al detalle subimos para verlo bien
+    window.scrollTo(0, 0); 
 
     let tvTicker = item.tickerGoogle && item.tickerGoogle.startsWith('BCBA:') ? item.tickerGoogle : item.ticker;
     const sym = item.currency === 'USD' ? 'u$s' : '$';
