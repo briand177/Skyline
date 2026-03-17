@@ -26,6 +26,7 @@ let scannerViewMode = 'fund';
 let scannerData = [];
 let hasLoaded = false;
 let compareSelection = [];
+let savedScrollPosition = 0; // Memoria de Scroll
 
 const CACHE_KEY = 'skyline_sheets_scanner_data';
 const CACHE_EXPIRATION = 12 * 60 * 60 * 1000; 
@@ -338,7 +339,9 @@ function renderScanner() {
 }
 
 btnRefreshScanner.addEventListener("click", () => { initScanner(true); });
-searchScannerInput.addEventListener("keyup", renderScanner); 
+// CAMBIADO de "keyup" a "input" para que detecte la cruz (X) nativa
+searchScannerInput.addEventListener("input", renderScanner); 
+
 toggleScannerViewBtn.addEventListener("click", () => {
     if (scannerViewMode === 'tech') {
         scannerViewMode = 'fund'; toggleScannerViewBtn.innerText = "Ver Técnico";
@@ -368,18 +371,24 @@ function handleCompareCheckbox(e) {
 document.addEventListener("change", (e) => { if (e.target.classList.contains("compare-cb")) handleCompareCheckbox(e); });
 
 btnFloatingCompare.addEventListener("click", () => {
+    savedScrollPosition = window.scrollY || document.documentElement.scrollTop; // GUARDAR SCROLL
     buildCompareView();
     scannerListView.style.display = "none";
     scannerCompareView.style.display = "block";
+    window.scrollTo(0, 0); // Ir al inicio del comparador
 });
 
 // Botones de retroceso blindados (Atados al Documento para que nunca fallen)
 document.addEventListener("click", (e) => {
     if (e.target.id === "btnBackToScanner" || e.target.closest("#btnBackToScanner")) {
-        scannerDetailView.style.display = "none"; scannerListView.style.display = "block";
+        scannerDetailView.style.display = "none"; 
+        scannerListView.style.display = "block";
+        window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }); // RESTAURAR SCROLL
     }
     if (e.target.id === "btnBackFromCompare" || e.target.closest("#btnBackFromCompare")) {
-        scannerCompareView.style.display = "none"; scannerListView.style.display = "block";
+        scannerCompareView.style.display = "none"; 
+        scannerListView.style.display = "block";
+        window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }); // RESTAURAR SCROLL
     }
 });
 
@@ -387,7 +396,6 @@ function buildFundTable(data) {
     scannerFundResults.innerHTML = "";
     if (data.length === 0) return;
 
-    document.querySelector("#scannerFundContainer th:nth-child(5)").innerHTML = `Precio Actual`;
     document.querySelector("#scannerFundContainer th:nth-child(6)").innerHTML = `Market Cap (USD) <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en bolsa.<br><br>Large Cap: > $10B<br>Mid Cap: $2B - $10B<br>Small Cap: < $2B</div></div>`;
     document.querySelector("#scannerFundContainer th:nth-child(7)").innerHTML = `PER <div class="tooltip">?<div class="tooltiptext">Años para recuperar la inversión.<br><br><b style="color:#00ff00">Comprar (Barato):</b> < 15<br><b style="color:#ff0044">Vender (Caro):</b> > 25</div></div>`;
     document.querySelector("#scannerFundContainer th:nth-child(8)").innerHTML = `BPA (USD) <div class="tooltip">?<div class="tooltiptext">Beneficio neto por cada acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Gana dinero)<br><b style="color:#ff0044">Vender:</b> < 0 (Da pérdidas)</div></div>`;
@@ -424,7 +432,6 @@ function buildTechTable(data) {
     scannerTechResults.innerHTML = "";
     if (data.length === 0) return;
 
-    document.querySelector("#scannerTechContainer th:nth-child(3)").innerHTML = `Precio Actual`;
     document.querySelector("#scannerTechContainer th:nth-child(4)").innerHTML = `RSI 14 <div class="tooltip">?<div class="tooltiptext">Índice de Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div>`;
     document.querySelector("#scannerTechContainer th:nth-child(5)").innerHTML = `MACD <div class="tooltip">?<div class="tooltiptext">Convergencia/Divergencia de Medias.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Fuerza alcista)<br><b style="color:#ff0044">Vender:</b> < 0 (Fuerza bajista)</div></div>`;
     document.querySelector("#scannerTechContainer th:nth-child(6)").innerHTML = `Stoch %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico.<br><br><b style="color:#00ff00">Comprar:</b> < 20 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 80 (Sobrecompra)</div></div>`;
@@ -464,7 +471,7 @@ document.addEventListener("click", (e) => {
     }
 });
 
-// --- VISTA COMPARADOR VERTICAL (Con Tooltips forzados a la derecha) ---
+// --- VISTA COMPARADOR VERTICAL ---
 function buildCompareView() {
     const assets = compareSelection.map(ticker => scannerData.find(d => d.ticker === ticker)).filter(x => x);
     if(assets.length === 0) return;
@@ -504,7 +511,6 @@ function buildCompareView() {
         return row;
     };
 
-    // Estilo especial inyectado para que la burbuja se abra a la derecha y no se corte
     const ttStyle = `style="left: 30px; top: -5px; bottom: auto; right: auto; transform: none; width: 220px; z-index: 99999;"`;
 
     let html = `<thead>${headers}</thead><tbody>`;
@@ -551,8 +557,11 @@ function showAssetDetail(ticker) {
     const item = scannerData.find(d => d.ticker === ticker);
     if (!item) return;
 
+    savedScrollPosition = window.scrollY || document.documentElement.scrollTop; // GUARDAR SCROLL AQUI
+
     scannerListView.style.display = "none";
     scannerDetailView.style.display = "block";
+    window.scrollTo(0, 0); // Al entrar al detalle subimos para verlo bien
 
     let tvTicker = item.tickerGoogle && item.tickerGoogle.startsWith('BCBA:') ? item.tickerGoogle : item.ticker;
     const sym = item.currency === 'USD' ? 'u$s' : '$';

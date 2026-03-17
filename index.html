@@ -71,7 +71,7 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3>Mis Tenencias (Globales)</h3>
-                    <input type="text" id="searchGlobalPortfolio" class="filter-input" placeholder="Filtrar activo..." autocomplete="off">
+                    <input type="search" id="searchGlobalPortfolio" class="filter-input" placeholder="Filtrar activo..." autocomplete="off">
                 </div>
                 <table>
                     <thead>
@@ -161,7 +161,7 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3>Mis Tenencias Bursátiles</h3>
-                    <input type="text" id="searchBursatilPortfolio" class="filter-input" placeholder="Filtrar ticker..." autocomplete="off">
+                    <input type="search" id="searchBursatilPortfolio" class="filter-input" placeholder="Filtrar ticker..." autocomplete="off">
                 </div>
                 <table>
                     <thead>
@@ -252,7 +252,7 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3>Mis Tenencias FCI</h3>
-                    <input type="text" id="searchFciPortfolio" class="filter-input" placeholder="Filtrar fondo..." autocomplete="off">
+                    <input type="search" id="searchFciPortfolio" class="filter-input" placeholder="Filtrar fondo..." autocomplete="off">
                 </div>
                 <table>
                     <thead>
@@ -275,7 +275,7 @@
                 <div class="table-header">
                     <h3>Historial de Movimientos FCI</h3>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="text" id="searchFciHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
+                        <input type="search" id="searchFciHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
                         <div class="import-export-btns">
                             <button id="btnExportFci" class="btn-action">⬇ Exportar CSV</button>
                             <button id="btnImportFci" class="btn-action">⬆ Importar CSV</button>
@@ -363,7 +363,7 @@
                 <div class="table-header">
                     <h3>Historial de Operaciones</h3>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="text" id="searchBursatilHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
+                        <input type="search" id="searchBursatilHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
                         <div class="import-export-btns">
                             <button id="btnExport" class="btn-action">⬇ Exportar CSV</button>
                             <button id="btnImport" class="btn-action">⬆ Importar CSV</button>
@@ -390,7 +390,7 @@
 
         <div id="marketView" class="view-section">
             <div class="search-container">
-                <input type="text" id="searchInput" placeholder="Buscar ticker..." autocomplete="off">
+                <input type="search" id="searchInput" placeholder="Buscar ticker..." autocomplete="off">
             </div>
             <div class="categories">
                 <button class="category active" data-category="all">Todos</button>
@@ -418,7 +418,7 @@
 
         <div id="fciView" class="view-section">
             <div class="search-container" style="margin-bottom: 20px;">
-                <input type="text" id="searchFciInput" placeholder="Buscar ticker de fondo..." autocomplete="off">
+                <input type="search" id="searchFciInput" placeholder="Buscar ticker de fondo..." autocomplete="off">
             </div>
             <div class="table-container">
                 <table>
@@ -441,7 +441,7 @@
             <div id="scannerListView">
                 <div class="scanner-controls">
                     <div class="search-container" style="flex: 1; margin-bottom: 0; display:flex; gap:10px;">
-                        <input type="text" id="searchScannerInput" placeholder="Buscar activo por nombre o ticker..." autocomplete="off" style="flex:1;">
+                        <input type="search" id="searchScannerInput" placeholder="Buscar activo por nombre o ticker..." autocomplete="off" style="flex:1;">
                         <button id="btnToggleFilters" class="btn-action" title="Filtros Avanzados">⚙️ Filtros</button>
                     </div>
                     <button id="btnRefreshScanner" class="btn-action" style="height: 48px; margin-right: 10px;" title="Actualiza datos fundamentales y técnicos">🔄 Refrescar Datos</button>
@@ -541,6 +541,23 @@
         </div>
 
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[type="search"]').forEach(input => {
+                input.addEventListener('input', function() {
+                    // Cuando tocás la 'X' se vacía el campo y dispara el evento 'input'
+                    if (this.value === '') {
+                        this.dispatchEvent(new Event('keyup'));
+                    }
+                });
+                input.addEventListener('search', function() {
+                    // Algunos navegadores usan el evento 'search' para la X
+                    this.dispatchEvent(new Event('keyup'));
+                });
+            });
+        });
+    </script>
     <script type="module" src="./app.js"></script>
     <script type="module" src="./fci.js"></script>
     <script type="module" src="./scanner.js"></script>
