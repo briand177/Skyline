@@ -437,13 +437,37 @@
         </div>
 
         <div id="usaScannerView" class="view-section">
+            
             <div id="scannerListView">
                 <div class="scanner-controls">
-                    <div class="search-container" style="flex: 1; margin-bottom: 0;">
-                        <input type="text" id="searchScannerInput" placeholder="Buscar activo y tocar Enter..." autocomplete="off">
+                    <div class="search-container" style="flex: 1; margin-bottom: 0; display:flex; gap:10px;">
+                        <input type="text" id="searchScannerInput" placeholder="Buscar activo por nombre o ticker..." autocomplete="off" style="flex:1;">
+                        <button id="btnToggleFilters" class="btn-action" title="Filtros Avanzados">⚙️ Filtros</button>
                     </div>
                     <button id="btnRefreshScanner" class="btn-action" style="height: 48px; margin-right: 10px;" title="Actualiza datos fundamentales y técnicos">🔄 Refrescar Datos</button>
                     <button id="toggleScannerViewBtn" class="btn-action" style="height: 48px;">Ver Técnico</button>
+                </div>
+
+                <div id="scannerFiltersPanel" style="display:none; background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #00f7ff; font-size:14px;">Filtros Avanzados</h4>
+                    <div style="display:flex; gap: 15px; flex-wrap: wrap; align-items:flex-end;">
+                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">PER Máx:</label><input type="number" id="filterPeMax" style="width:80px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;"></div>
+                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">RSI Mín:</label><input type="number" id="filterRsiMin" style="width:80px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;"></div>
+                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">RSI Máx:</label><input type="number" id="filterRsiMax" style="width:80px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;"></div>
+                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">Distancia SMA200 (Máx %):</label><input type="number" id="filterDistSmaMax" style="width:120px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;" placeholder="Ej: 15"></div>
+                        <div>
+                            <label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">Tendencia (Cruce):</label>
+                            <select id="filterTrend" style="height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;">
+                                <option value="">Todas</option>
+                                <option value="Golden">Golden Cross (Alcista)</option>
+                                <option value="Death">Death Cross (Bajista)</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button id="btnApplyFilters" class="btn-submit" style="height:35px; font-size:13px; padding: 0 15px;">Aplicar</button>
+                            <button id="btnClearFilters" class="btn-cancel" style="height:35px; font-size:13px; padding: 0 15px;">Limpiar</button>
+                        </div>
+                    </div>
                 </div>
                 
                 <div id="scannerFundContainer" class="table-container">
@@ -451,18 +475,19 @@
                     <table>
                         <thead>
                             <tr>
+                                <th style="width:40px; text-align:center;">Sel.</th>
                                 <th>Ticker</th>
                                 <th>Nombre</th>
                                 <th>Moneda</th>
-                                <th>Precio <div class="tooltip">?<div class="tooltiptext">Precio de mercado actual en USD.</div></div></th>
-                                <th>Market Cap <div class="tooltip">?<div class="tooltiptext">Capitalización de Mercado.<br><b>Large:</b> > $10B (Seguro).<br><b>Small:</b> < $2B (Potencial).</div></div></th>
-                                <th>PER <div class="tooltip">?<div class="tooltiptext">Años necesarios para recuperar la inversión.<br><b style="color:#00ff00">Barato:</b> < 15<br><b style="color:#ff0044">Caro:</b> > 25</div></div></th>
-                                <th>BPA (EPS) <div class="tooltip">?<div class="tooltiptext">Beneficio Por Acción.<br><b style="color:#00ff00">Fuerte:</b> > 0 (Genera ganancias).</div></div></th>
-                                <th>Beta <div class="tooltip">?<div class="tooltiptext">Volatilidad vs Mercado.<br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff00ff">Agresiva:</b> > 1.2</div></div></th>
-                                <th>Div. Yield <div class="tooltip">?<div class="tooltiptext">Rendimiento anual por dividendos.<br><b style="color:#00ff00">Alto:</b> > 3%.</div></div></th>
-                                <th>Vol. Prom. <div class="tooltip">?<div class="tooltiptext">Volumen de operaciones promedio diario.</div></div></th>
-                                <th>Mín 52s <div class="tooltip">?<div class="tooltiptext">Piso del precio en el último año.</div></div></th>
-                                <th>Máx 52s <div class="tooltip">?<div class="tooltiptext">Techo del precio en el último año.</div></div></th>
+                                <th>Precio (Base)</th>
+                                <th>Market Cap (USD)</th>
+                                <th>PER</th>
+                                <th>BPA (USD)</th>
+                                <th>Beta</th>
+                                <th>Rend. Beneficio (EPS/Precio)</th>
+                                <th>Vol. Prom.</th>
+                                <th>Mín 52s</th>
+                                <th>Máx 52s</th>
                             </tr>
                         </thead>
                         <tbody id="scannerFundResults"></tbody>
@@ -474,28 +499,45 @@
                     <table>
                         <thead>
                             <tr>
+                                <th style="width:40px; text-align:center;">Sel.</th>
                                 <th>Ticker</th>
-                                <th>Precio</th>
-                                <th>RSI 14 <div class="tooltip">?<div class="tooltiptext">Índice de Fuerza Relativa.<br><b style="color:#00ff00">Compra:</b> < 35<br><b style="color:#ff0044">Venta:</b> > 65</div></div></th>
-                                <th>MACD <div class="tooltip">?<div class="tooltiptext">Convergencia/Divergencia de Medias Móviles.<br><b style="color:#00ff00">Alcista:</b> > 0</div></div></th>
-                                <th>Stoch. %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico (14,3).<br><b style="color:#00ff00">Sobreventa:</b> < 20<br><b style="color:#ff0044">Sobrecompra:</b> > 80</div></div></th>
-                                <th>SMA 20 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Corto Plazo / 1 mes).</div></div></th>
-                                <th>SMA 50 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Medio Plazo / Trimestre).</div></div></th>
-                                <th>SMA 200 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Largo Plazo / 1 Año).</div></div></th>
-                                <th>Boll. Sup. <div class="tooltip">?<div class="tooltiptext">Banda de Bollinger Superior. Precio por encima indica posible corrección.</div></div></th>
-                                <th>Boll. Inf. <div class="tooltip">?<div class="tooltiptext">Banda de Bollinger Inferior. Precio por debajo indica posible rebote.</div></div></th>
-                                <th>Tendencia <div class="tooltip">?<div class="tooltiptext">Comparación de Precio vs SMA200.<br><b style="color:#00ff00">Bullish:</b> Precio > SMA200.</div></div></th>
+                                <th>Precio (Base)</th>
+                                <th>RSI 14</th>
+                                <th>MACD</th>
+                                <th>Stoch. %K</th>
+                                <th>SMA 20</th>
+                                <th>SMA 50</th>
+                                <th>SMA 200</th>
+                                <th>Boll. Sup.</th>
+                                <th>Boll. Inf.</th>
+                                <th>Tendencia</th>
                             </tr>
                         </thead>
                         <tbody id="scannerTechResults"></tbody>
                     </table>
                 </div>
-
             </div>
+
+            <button id="btnFloatingCompare" class="btn-submit" style="display:none; position:fixed; bottom:30px; right:30px; z-index:100; box-shadow: 0 4px 15px rgba(0,247,255,0.3); font-size: 16px; padding: 15px 25px; border-radius: 25px;">⚖️ Comparar (0/3)</button>
+
             <div id="scannerDetailView" style="display: none;">
                 <button id="btnBackToScanner" class="btn-action" style="margin-bottom: 20px;">⬅ Volver al listado</button>
                 <div id="scannerDetailContent"></div>
             </div>
+
+            <div id="scannerCompareView" style="display: none;">
+                <div style="position: relative; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; min-height: 40px;">
+                    <button id="btnBackFromCompare" class="btn-action" style="position: absolute; left: 0;">⬅ Volver al listado</button>
+                    <h3 style="color: #00f7ff; font-size: 24px; margin: 0;">⚖️ Comparador de Activos</h3>
+                </div>
+                <div class="table-container" style="padding: 0; overflow: hidden; border: 1px solid #1f2937;">
+                    <div style="overflow-x: auto; overflow-y: auto; max-height: 70vh; width: 100%;">
+                        <table id="compareTable" style="min-width: 800px; margin: 0; border-collapse: collapse; width: 100%;">
+                            </table>
+                    </div>
+                </div>
+            </div>
+            
         </div>
 
     </div>
