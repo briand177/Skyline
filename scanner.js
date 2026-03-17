@@ -402,22 +402,32 @@ function handleCompareCheckbox(e) {
 
 document.addEventListener("change", (e) => { if (e.target.classList.contains("compare-cb")) handleCompareCheckbox(e); });
 
-// Gestión de clics globales (Botones X, Borrar Todos, Ir a comparar y Retroceder)
+// Gestión de clics globales (Botones X, Borrar Todos, Ir a comparar, Detalle de Activo y Retroceder)
 document.addEventListener("click", (e) => {
-    // Quitar un activo específico ("X" en el panel flotante)
+    
+    // --- CORRECCIÓN DEL BUBBLING: Abrir Detalle ---
+    // Usamos .closest() para atrapar el clic aunque el usuario toque el texto interno (<strong> o <small>)
+    const clickableCell = e.target.closest('.clickable-cell');
+    if (clickableCell) {
+        const row = clickableCell.closest('.scanner-row');
+        if (row && row.dataset.ticker) {
+            savedScrollPosition = window.scrollY || document.documentElement.scrollTop;
+            showAssetDetail(row.dataset.ticker);
+        }
+    }
+    // ----------------------------------------------
+
     if (e.target.classList.contains("remove-tag-btn")) {
         const tickerToRemove = e.target.dataset.ticker;
         compareSelection = compareSelection.filter(t => t !== tickerToRemove);
         updateCompareUI();
     }
 
-    // Borrar Todos
     if (e.target.id === "btnClearCompare") {
         compareSelection = [];
         updateCompareUI();
     }
 
-    // Ir al Comparador
     if (e.target.id === "btnGoToCompare") {
         savedScrollPosition = window.scrollY || document.documentElement.scrollTop;
         buildCompareView();
@@ -426,14 +436,12 @@ document.addEventListener("click", (e) => {
         window.scrollTo(0, 0); 
     }
 
-    // Volver desde Detalle
     if (e.target.id === "btnBackToScanner" || e.target.closest("#btnBackToScanner")) {
         scannerDetailView.style.display = "none"; 
         scannerListView.style.display = "block";
         setTimeout(() => window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }), 15);
     }
     
-    // Volver desde Comparador
     if (e.target.id === "btnBackFromCompare" || e.target.closest("#btnBackFromCompare")) {
         scannerCompareView.style.display = "none"; 
         scannerListView.style.display = "block";
@@ -515,16 +523,6 @@ function buildTechTable(data) {
         `;
     }).join("");
 }
-
-document.addEventListener("click", (e) => { 
-    if (e.target.classList.contains("clickable-cell")) { 
-        const row = e.target.closest('.scanner-row'); 
-        if (row && row.dataset.ticker) {
-            savedScrollPosition = window.scrollY || document.documentElement.scrollTop;
-            showAssetDetail(row.dataset.ticker); 
-        }
-    }
-});
 
 // --- VISTA COMPARADOR VERTICAL ---
 function buildCompareView() {
