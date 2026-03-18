@@ -20,13 +20,21 @@ const globalChartAssetFilter = document.getElementById("globalChartAssetFilter")
 const marketResults = document.getElementById("results");
 
 export let instruments = [];
-export let isUSD = false;
+// MEMORIA DE MONEDA: Recuperamos la preferencia o arrancamos en ARS (false)
+export let isUSD = localStorage.getItem('skyline_is_usd') === 'true';
 export let currentMepRate = 1000; 
 export let historicalMepRates = []; 
 export let bolsaTotals = { actInvARS: 0, actInvUSD: 0, actCurARS: 0, actCurUSD: 0, clsInvARS: 0, clsInvUSD: 0, clsProARS: 0, clsProUSD: 0 };
 export let bolsaHoldingsArr = [];
 export let transactions = JSON.parse(localStorage.getItem('bolsa_transactions')) || [];
 export let livePricesMap = {}; 
+
+// APLICAR MEMORIA VISUAL AL CARGAR
+if (isUSD) {
+    currencySwitch.checked = true;
+    labelARS.classList.remove("active-currency");
+    labelUSD.classList.add("active-currency");
+}
 
 export function formatMonto(num) { return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num || 0); }
 export function formatMontoEntero(num) { return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(parseFloat(num) || 0); }
@@ -99,7 +107,6 @@ document.querySelectorAll('.time-btn').forEach(btn => {
     });
 });
 
-// --- LÓGICA DE RENDIMIENTO (CORREGIDA PARA DÓLAR MEP HISTÓRICO) ---
 export function getAssetPerformance(ticker, period) {
     if (!historicalPricesCache[ticker]) return null;
     const dates = Object.keys(historicalPricesCache[ticker]).sort();
@@ -108,7 +115,6 @@ export function getAssetPerformance(ticker, period) {
     const lastDateStr = dates[dates.length - 1];
     let lastPrice = historicalPricesCache[ticker][lastDateStr];
     
-    // Si estamos en USD, convertimos el precio final a USD usando el MEP de ese día
     if (isUSD) lastPrice = lastPrice / getHistoricalMepRate(lastDateStr);
 
     const today = new Date(`${lastDateStr}T12:00:00`); 
@@ -118,7 +124,6 @@ export function getAssetPerformance(ticker, period) {
         const prevDateStr = dates[dates.length - 2];
         let prevPrice = historicalPricesCache[ticker][prevDateStr];
         
-        // Si estamos en USD, convertimos el precio de ayer a USD usando el MEP de AYER
         if (isUSD) prevPrice = prevPrice / getHistoricalMepRate(prevDateStr);
         
         if (prevPrice > 0) return ((lastPrice - prevPrice) / prevPrice) * 100;
@@ -140,13 +145,11 @@ export function getAssetPerformance(ticker, period) {
         }
     }
     
-    // Si no hay datos tan viejos, tomamos el más antiguo disponible
     if (!pastPrice) { 
         pastPrice = historicalPricesCache[ticker][dates[0]]; 
         pastDateStr = dates[0];
     }
 
-    // Si estamos en USD, convertimos el precio pasado a USD usando el MEP de ESE DÍA PASADO
     if (isUSD && pastPrice > 0) {
         pastPrice = pastPrice / getHistoricalMepRate(pastDateStr);
     }
@@ -154,7 +157,6 @@ export function getAssetPerformance(ticker, period) {
     if (pastPrice > 0) return ((lastPrice - pastPrice) / pastPrice) * 100;
     return null;
 }
-// ------------------------------------------------------------------
 
 export let lastFciTotals = { actInvARS: 0, actInvUSD: 0, actCurARS: 0, actCurUSD: 0, clsInvARS: 0, clsInvUSD: 0, clsProARS: 0, clsProUSD: 0 };
 export let lastFciHoldings = [];
@@ -439,12 +441,35 @@ async function updateCharts(labels, values, pnlPcts, colors) {
         .then(chart => { if (myDrawId !== bolsaDrawId) { if (chart) chart.destroy(); return; } if(chart) { lineChartInstance = chart; applyChartVisibility(); } }).catch(e => console.error("Error cargando histórico:", e));
 }
 
+// --- CONVERSIÓN HISTÓRICA DE TRANSACCIONES A USD ---
 function renderHistory() {
     const sym = isUSD ? "u$s " : "$ ";
     const filterText = document.getElementById("searchBursatilHistory")?.value || "";
     const filteredTxs = transactions.filter(tx => matchSearch(`${tx.ticker} ${tx.type}`, filterText));
-    historyResults.innerHTML = filteredTxs.map(tx => `<tr><td>${tx.date}</td><td><strong>${tx.ticker}</strong></td><td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Compra':'Venta'}</td><td>${obfuscate(tx.qty)}</td><td>${obfuscate(sym + formatPrecio(tx.price))}</td><td>${obfuscate(sym + formatMonto(tx.commission))}</td><td><div class="action-buttons"><button class="btn-edit" data-id="${tx.id}">Editar</button><button class="btn-delete" data-id="${tx.id}">X</button></div></td></tr>`).join("");
+    
+    historyResults.innerHTML = filteredTxs.map(tx => {
+        let dispPrice = tx.price;
+        let dispComm = tx.commission || 0;
+        
+        // Si la vista está en USD, buscamos el MEP de ese día exacto y hacemos la división
+        if (isUSD) {
+            const txMep = getHistoricalMepRate(tx.date);
+            dispPrice = tx.price / txMep;
+            dispComm = dispComm / txMep;
+        }
+
+        return `<tr>
+            <td>${tx.date}</td>
+            <td><strong>${tx.ticker}</strong></td>
+            <td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Compra':'Venta'}</td>
+            <td>${obfuscate(tx.qty)}</td>
+            <td>${obfuscate(sym + formatPrecio(dispPrice))}</td>
+            <td>${obfuscate(sym + formatMonto(dispComm))}</td>
+            <td><div class="action-buttons"><button class="btn-edit" data-id="${tx.id}">Editar</button><button class="btn-delete" data-id="${tx.id}">X</button></div></td>
+        </tr>`;
+    }).join("");
 }
+// ----------------------------------------------------
 
 historyResults.addEventListener("click", (e) => {
     const target = e.target;
@@ -462,7 +487,16 @@ document.getElementById("btnCancelEdit").onclick = closeModal;
 
 document.querySelectorAll(".categories .category").forEach(btn => { btn.addEventListener("click", () => { document.querySelectorAll(".categories .category").forEach(el => el.classList.remove("active")); btn.classList.add("active"); renderMarketTable(); }); });
 
-currencySwitch.addEventListener("change", (e) => { isUSD = e.target.checked; if (isUSD) { labelARS.classList.remove("active-currency"); labelUSD.classList.add("active-currency"); } else { labelARS.classList.add("active-currency"); labelUSD.classList.remove("active-currency"); } renderPortfolio(); renderHistory(); renderMarketTable(); renderFciPortfolio(); renderFciHistory(); });
+// GUARDAMOS LA PREFERENCIA DE MONEDA EN LOCALSTORAGE AL CAMBIAR EL SWITCH
+currencySwitch.addEventListener("change", (e) => { 
+    isUSD = e.target.checked; 
+    localStorage.setItem('skyline_is_usd', isUSD); // <--- Guarda la opción
+
+    if (isUSD) { labelARS.classList.remove("active-currency"); labelUSD.classList.add("active-currency"); } 
+    else { labelARS.classList.add("active-currency"); labelUSD.classList.remove("active-currency"); } 
+    
+    renderPortfolio(); renderHistory(); renderMarketTable(); renderFciPortfolio(); renderFciHistory(); 
+});
 
 chartAssetFilter.addEventListener("change", renderPortfolio); globalChartAssetFilter.addEventListener("change", renderGlobalPortfolio);
 document.getElementById("searchGlobalPortfolio")?.addEventListener("input", () => renderGlobalPortfolio());

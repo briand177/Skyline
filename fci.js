@@ -199,23 +199,36 @@ export function renderFciPortfolio() {
     renderGlobalPortfolio({ actInvARS, actInvUSD, actCurARS, actCurUSD, clsInvARS, clsInvUSD, clsProARS, clsProUSD }, fciHoldingsArr, fciTransactions);
 }
 
+// --- CONVERSIÓN HISTÓRICA CRUZADA PARA FONDOS COMUNES ---
 export function renderFciHistory() {
     const filterText = document.getElementById("searchFciHistory")?.value || "";
     const filteredTxs = fciTransactions.filter(tx => matchSearch(`${tx.ticker} ${tx.type === 'buy' ? 'Suscripción' : 'Rescate'} ${tx.currency}`, filterText));
 
+    const sym = isUSD ? "u$s " : "$ ";
+
     document.getElementById("fciHistoryResults").innerHTML = filteredTxs.map(tx => {
-        const nativeSym = tx.currency === 'USD' ? "u$s " : "$ ";
+        let dispPrice = tx.price;
+        const txMep = getHistoricalMepRate(tx.date);
+        
+        // Matemáticas de conversión inversa según la moneda original del Fondo
+        if (isUSD && tx.currency !== 'USD') {
+            dispPrice = tx.price / txMep;
+        } else if (!isUSD && tx.currency === 'USD') {
+            dispPrice = tx.price * txMep;
+        }
+
         return `<tr>
             <td>${tx.date}</td>
             <td><strong>${tx.ticker}</strong></td>
             <td class="${tx.type==='buy'?'positive':'negative'}">${tx.type==='buy'?'Suscripción':'Rescate'}</td>
-            <td>${tx.currency}</td>
+            <td><span style="font-size:12px; color:#9ca3af; padding:2px 6px; border:1px solid #374151; border-radius:4px;">${tx.currency}</span></td>
             <td>${obfuscate(formatMonto(tx.qty))}</td>
-            <td>${obfuscate(nativeSym + formatPrecio(tx.price))}</td>
+            <td>${obfuscate(sym + formatPrecio(dispPrice))}</td>
             <td><div class="action-buttons"><button class="btn-edit" data-id="${tx.id}" onclick="editarFciTx('${tx.id}')">Editar</button><button class="btn-delete" data-id="${tx.id}" onclick="eliminarFciTx('${tx.id}')">X</button></div></td>
         </tr>`;
     }).join("") || "<tr><td colspan='7'>Sin operaciones</td></tr>";
 }
+// ---------------------------------------------------------
 
 document.getElementById("searchFciPortfolio")?.addEventListener("input", renderFciPortfolio);
 document.getElementById("searchFciHistory")?.addEventListener("input", renderFciHistory);
