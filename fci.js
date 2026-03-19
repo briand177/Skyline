@@ -1,4 +1,4 @@
-import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, formatMontoEntero, formatPrecio, renderGlobalPortfolio, matchSearch, obfuscate, currentTablePeriod } from "./app.js";
+import { isUSD, currentMepRate, getHistoricalMepRate, formatMonto, formatMontoEntero, formatPrecio, renderGlobalPortfolio, matchSearch, obfuscate, currentTablePeriod, getAssetPerformance } from "./app.js";
 
 let fciData = [];
 let hasLoadedFci = false;
@@ -155,7 +155,8 @@ export function renderFciPortfolio() {
         const pnl = currentVal - invested; const pnlP = invested > 0 ? (pnl / invested) * 100 : 0;
         
         fciHoldingsArr.push({
-            ticker: t, tag: "FCI", qtyStr: formatMonto(h.qty), nativeSym: h.isUSD ? "u$s " : "$ ", nativePPC: h.invNative / (h.qty / 1000), nativePrice: apiPriceUnit,
+            ticker: t, tag: "FCI", qtyStr: formatMonto(h.qty), realQty: (h.qty / 1000), 
+            nativeSym: h.isUSD ? "u$s " : "$ ", nativePPC: h.invNative / (h.qty / 1000), nativePrice: apiPriceUnit,
             currentARS: currentValARS, currentUSD: currentValUSD, pnlARS: currentValARS - h.invARS, pnlUSD: currentValUSD - h.invUSD, pnlPct: pnlP
         });
     }
@@ -164,15 +165,30 @@ export function renderFciPortfolio() {
     const filteredFci = fciHoldingsArr.filter(h => matchSearch(h.ticker, filterText));
 
     const th1 = document.getElementById("fciThPnl1"); const th2 = document.getElementById("fciThPnl2");
-    if (currentTablePeriod === 'ALL') { th1.style.display = ""; th1.innerText = "P/L ($)"; th2.innerText = "P/L (%)"; } 
-    else { th1.style.display = "none"; th2.innerText = `Rend. Activo (${currentTablePeriod})`; }
+    if (currentTablePeriod === 'ALL') { 
+        th1.style.display = ""; th1.innerText = "P/L ($)"; th2.innerText = "P/L (%)"; 
+    } else { 
+        th1.style.display = ""; th1.innerText = `P/L ($) (${currentTablePeriod})`; th2.innerText = `P/L (%) (${currentTablePeriod})`; 
+    }
 
     let html = filteredFci.map(h => {
         let pnlCellHtml = '';
         if (currentTablePeriod === 'ALL') {
-            pnlCellHtml = `<td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(isUSD ? h.pnlUSD : h.pnlARS))}</td><td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>`;
+            const pnlVal = isUSD ? h.pnlUSD : h.pnlARS;
+            const pnlStr = pnlVal >= 0 ? `+${sym}${formatMonto(pnlVal)}` : `-${sym}${formatMonto(Math.abs(pnlVal))}`;
+            const pctStr = h.pnlPct >= 0 ? `+${h.pnlPct.toFixed(2)}%` : `${h.pnlPct.toFixed(2)}%`;
+            pnlCellHtml = `<td class="${pnlVal >= 0 ? 'positive' : 'negative'}">${obfuscate(pnlStr)}</td><td class="${pnlVal >= 0 ? 'positive' : 'negative'}">${obfuscate(pctStr)}</td>`;
         } else {
-            pnlCellHtml = `<td colspan="2" style="text-align:center;" class="neutral"><strong>-</strong></td>`;
+            const perf = getAssetPerformance(h.ticker, currentTablePeriod);
+            if (perf !== null) {
+                const nominal = perf.diff * h.realQty;
+                const pctStr = (perf.pct > 0 ? '+' : '') + perf.pct.toFixed(2) + '%';
+                const nomStr = (nominal > 0 ? '+' : (nominal < 0 ? '-' : '')) + sym + formatMonto(Math.abs(nominal));
+                const pClass = perf.pct >= 0 ? 'positive' : 'negative';
+                pnlCellHtml = `<td class="${pClass}">${obfuscate(nomStr)}</td><td class="${pClass}">${obfuscate(pctStr)}</td>`;
+            } else {
+                pnlCellHtml = `<td class="neutral">-</td><td class="neutral">-</td>`;
+            }
         }
         return `<tr>
             <td><strong>${h.ticker}</strong></td>
@@ -199,7 +215,6 @@ export function renderFciPortfolio() {
     renderGlobalPortfolio({ actInvARS, actInvUSD, actCurARS, actCurUSD, clsInvARS, clsInvUSD, clsProARS, clsProUSD }, fciHoldingsArr, fciTransactions);
 }
 
-// --- CONVERSIÓN HISTÓRICA CRUZADA PARA FONDOS COMUNES ---
 export function renderFciHistory() {
     const filterText = document.getElementById("searchFciHistory")?.value || "";
     const filteredTxs = fciTransactions.filter(tx => matchSearch(`${tx.ticker} ${tx.type === 'buy' ? 'Suscripción' : 'Rescate'} ${tx.currency}`, filterText));
@@ -210,7 +225,6 @@ export function renderFciHistory() {
         let dispPrice = tx.price;
         const txMep = getHistoricalMepRate(tx.date);
         
-        // Matemáticas de conversión inversa según la moneda original del Fondo
         if (isUSD && tx.currency !== 'USD') {
             dispPrice = tx.price / txMep;
         } else if (!isUSD && tx.currency === 'USD') {
@@ -228,7 +242,6 @@ export function renderFciHistory() {
         </tr>`;
     }).join("") || "<tr><td colspan='7'>Sin operaciones</td></tr>";
 }
-// ---------------------------------------------------------
 
 document.getElementById("searchFciPortfolio")?.addEventListener("input", renderFciPortfolio);
 document.getElementById("searchFciHistory")?.addEventListener("input", renderFciHistory);

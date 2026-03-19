@@ -27,10 +27,13 @@ let hasLoaded = false;
 let compareSelection = [];
 let savedScrollPosition = 0; 
 
+// ESTADO DE ORDENAMIENTO DEL SCANNER
+let scannerSort = { col: 'ticker', asc: true };
+
 const CACHE_KEY = 'skyline_sheets_scanner_data';
 const CACHE_EXPIRATION = 12 * 60 * 60 * 1000; 
 
-let currentFilters = { peMax: null, rsiMin: null, rsiMax: null, distSmaMax: null, trend: "" };
+let currentFilters = { peMax: null, epsMin: null, betaMax: null, rsiMin: null, rsiMax: null, macd: "", distSmaMax: null, perf1YMin: null, trend: "" };
 
 function fNum(val) {
     if (val === null || val === undefined || val === '-') return '-';
@@ -43,32 +46,22 @@ function parseSheetNumber(val) {
     if (val === undefined || val === null) return null;
     let str = String(val).replace(/"/g, '').trim();
     if (str === '' || str === '-' || str === '#N/A') return null;
-    
-    if (str.includes(',')) {
-        str = str.replace(/\./g, '');
-        str = str.replace(/,/g, '.');
-    } else if (str.split('.').length > 2) {
-        str = str.replace(/\./g, '');
-    }
-    
-    const num = parseFloat(str);
-    return isNaN(num) ? null : num;
+    if (str.includes(',')) { str = str.replace(/\./g, ''); str = str.replace(/,/g, '.'); } 
+    else if (str.split('.').length > 2) { str = str.replace(/\./g, ''); }
+    const num = parseFloat(str); return isNaN(num) ? null : num;
 }
 
 export async function initScanner(forceRefresh = false) {
     if (hasLoaded && !forceRefresh) return;
     
-    scannerFundResults.innerHTML = "<tr><td colspan='13' style='text-align:center; padding: 30px;'>Actualizando activos e índices... 🚀</td></tr>";
-    scannerTechResults.innerHTML = "<tr><td colspan='12' style='text-align:center; padding: 30px;'>Actualizando activos e índices... 🚀</td></tr>";
+    scannerFundResults.innerHTML = "<tr><td colspan='10' style='text-align:center; padding: 30px;'>Calculando Fundamentales e Índices de Rendimiento... 🚀</td></tr>";
+    scannerTechResults.innerHTML = "<tr><td colspan='12' style='text-align:center; padding: 30px;'>Extrayendo índices técnicos... 🚀</td></tr>";
 
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached && !forceRefresh) {
         const parsed = JSON.parse(cached);
         if (Date.now() - parsed.timestamp < CACHE_EXPIRATION) {
-            scannerData = parsed.data;
-            hasLoaded = true;
-            renderScanner();
-            return;
+            scannerData = parsed.data; hasLoaded = true; renderScanner(); return;
         }
     }
 
@@ -85,8 +78,8 @@ export async function initScanner(forceRefresh = false) {
             if (cols.length >= 11) {
                 const ticker = cols[0].trim().replace(/"/g, '');
                 if (!ticker) return;
-                
                 allTickers.push(ticker);
+                
                 rawFundData[ticker] = {
                     tickerGoogle: cols[1] ? cols[1].trim().replace(/"/g, '') : '',
                     price: parseSheetNumber(cols[2]) || 0,
@@ -112,100 +105,48 @@ export async function initScanner(forceRefresh = false) {
             const fund = rawFundData[ticker] || {};
             const tech = technicalData[ticker] || {};
             
-            let validName = fund.name;
-            if (!validName || validName === '' || validName.includes('#N/A')) validName = '-';
-
-            let currency = 'USD';
-            let nameLower = validName.toLowerCase();
-            let tGoogle = fund.tickerGoogle || '';
-            
-            if (tGoogle.startsWith('BCBA:') || ticker.includes('.BA') || nameLower.includes('cedear') || nameLower.includes('cdr')) {
-                currency = 'ARS';
-            }
+            let validName = fund.name; if (!validName || validName === '' || validName.includes('#N/A')) validName = '-';
+            let currency = 'USD'; let nameLower = validName.toLowerCase(); let tGoogle = fund.tickerGoogle || '';
+            if (tGoogle.startsWith('BCBA:') || ticker.includes('.BA') || nameLower.includes('cedear') || nameLower.includes('cdr')) currency = 'ARS';
 
             let currentPrice = fund.price || tech.currentPrice || 0;
             let mepToUse = (currentMepRate && currentMepRate > 0) ? currentMepRate : 1000;
             
-            let epsUSD = fund.eps;
-            let mcapUSD = fund.mcap;
-            let priceUSD = currentPrice;
-
+            let epsUSD = fund.eps; let mcapUSD = fund.mcap; let priceUSD = currentPrice;
             if (currency === 'ARS') {
                 if (epsUSD !== null) epsUSD = epsUSD / mepToUse;
                 if (mcapUSD !== null) mcapUSD = mcapUSD / mepToUse;
                 priceUSD = currentPrice / mepToUse; 
             }
 
-            let earnYield = null;
-            if (epsUSD !== null && priceUSD > 0) {
-                earnYield = (epsUSD / priceUSD) * 100;
-            }
-
+            let earnYield = null; if (epsUSD !== null && priceUSD > 0) earnYield = (epsUSD / priceUSD) * 100;
             let distHigh = null, distLow = null;
             if (currentPrice > 0 && fund.yearHigh) distHigh = ((currentPrice - fund.yearHigh) / fund.yearHigh) * 100;
             if (currentPrice > 0 && fund.yearLow) distLow = ((currentPrice - fund.yearLow) / fund.yearLow) * 100;
 
             return {
-                ticker: ticker,
-                tickerGoogle: tGoogle,
-                name: validName,
-                currency: currency, 
-                price: currentPrice, 
+                ticker: ticker, tickerGoogle: tGoogle, name: validName, currency: currency, price: currentPrice, 
+                mcap: mcapUSD, pe: fund.pe || null, eps: epsUSD, beta: fund.beta || null, volAvg: fund.volAvg || null,
+                yearHigh: fund.yearHigh || null, yearLow: fund.yearLow || null, earnYield: earnYield, 
                 
-                mcap: mcapUSD, 
-                pe: fund.pe || null,
-                eps: epsUSD,   
-                beta: fund.beta || null, 
-                volAvg: fund.volAvg || null,
-                yearHigh: fund.yearHigh || null,
-                yearLow: fund.yearLow || null,
-                earnYield: earnYield, 
-                distHigh: distHigh,
-                distLow: distLow,
-                perf1M: tech.perf1M || null,
-                perf6M: tech.perf6M || null,
-                perf1Y: tech.perf1Y || null,
-                
-                changePct: tech.changePct || null,
-                sma20: tech.sma20 || null,
-                sma50: tech.sma50 || null,
-                sma200: tech.sma200 || null,
-                ema20: tech.ema20 || null,
-                ema50: tech.ema50 || null,
-                distSMA200: tech.distSMA200 || null,
-                crossStatus: tech.crossStatus || '-',
-                rsi: tech.rsi || null,
-                mfi: tech.mfi || null,
-                macd: tech.macd || null,
-                stochK: tech.stochK || null,
-                atr: tech.atr || null,
-                bollUpper: tech.bollUpper || null,
-                bollLower: tech.bollLower || null
+                distHigh: distHigh, distLow: distLow,
+                perf1M: tech.perf1M || null, perf3M: tech.perf3M || null, perf6M: tech.perf6M || null, perfYTD: tech.perfYTD || null, perf1Y: tech.perf1Y || null,
+                changePct: tech.changePct || null, sma20: tech.sma20 || null, sma50: tech.sma50 || null, sma200: tech.sma200 || null,
+                ema20: tech.ema20 || null, ema50: tech.ema50 || null, distSMA200: tech.distSMA200 || null, distEMA20: tech.distEMA20 || null, crossStatus: tech.crossStatus || '-',
+                rsi: tech.rsi || null, mfi: tech.mfi || null, macd: tech.macd || null, stochK: tech.stochK || null, atr: tech.atr || null, bollUpper: tech.bollUpper || null, bollLower: tech.bollLower || null
             };
         });
 
         let uniqueData = [];
         rawMapped.forEach(item => {
             if (item.price > 0 && item.name !== '-') {
-                let isClone = false;
-                let t = item.ticker.toUpperCase();
-                let lastChar = t.slice(-1);
-                
+                let isClone = false; let t = item.ticker.toUpperCase(); let lastChar = t.slice(-1);
                 if (lastChar === 'C' || lastChar === 'D') {
-                    let baseTicker = t.slice(0, -1);
-                    let baseItem = rawMapped.find(x => x.ticker.toUpperCase() === baseTicker);
-                    
+                    let baseTicker = t.slice(0, -1); let baseItem = rawMapped.find(x => x.ticker.toUpperCase() === baseTicker);
                     if (baseItem && baseItem.name !== '-') {
-                        let nameClone = item.name.toLowerCase();
-                        let nameBase = baseItem.name.toLowerCase();
-                        
-                        if (nameClone.includes('cedear') || nameClone.includes('cdr')) {
-                            isClone = true;
-                        } else {
-                            let prefixClone = nameClone.replace(/[^a-z]/g, '').substring(0, 4);
-                            let prefixBase = nameBase.replace(/[^a-z]/g, '').substring(0, 4);
-                            if (prefixClone === prefixBase) isClone = true;
-                        }
+                        let nameClone = item.name.toLowerCase(); let nameBase = baseItem.name.toLowerCase();
+                        if (nameClone.includes('cedear') || nameClone.includes('cdr')) isClone = true;
+                        else { let prefixClone = nameClone.replace(/[^a-z]/g, '').substring(0, 4); let prefixBase = nameBase.replace(/[^a-z]/g, '').substring(0, 4); if (prefixClone === prefixBase) isClone = true; }
                     }
                 }
                 if (!isClone) uniqueData.push(item);
@@ -213,16 +154,9 @@ export async function initScanner(forceRefresh = false) {
         });
 
         scannerData = uniqueData.sort((a, b) => a.ticker.localeCompare(b.ticker));
-        
-        if (scannerData.length > 0) {
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: scannerData }));
-        }
-        hasLoaded = true;
-        renderScanner();
-
-    } catch (error) {
-        console.error("Error Crítico en Scanner:", error);
-    }
+        if (scannerData.length > 0) localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: scannerData }));
+        hasLoaded = true; renderScanner();
+    } catch (error) { console.error("Error Crítico en Scanner:", error); }
 }
 
 async function calculateTechnicalsMassive(tickers, rawFundData) {
@@ -231,57 +165,57 @@ async function calculateTechnicalsMassive(tickers, rawFundData) {
     const now = Math.floor(Date.now() / 1000);
 
     await Promise.allSettled(tickers.map(async (ticker) => {
-        let yhTicker = ticker;
-        let fund = rawFundData[ticker] || {};
-        let tGoogle = fund.tickerGoogle || '';
-
-        if (tGoogle.startsWith('BCBA:')) yhTicker = ticker + '.BA';
-        else if (['PETR3', 'ABEV3', 'VALE3'].includes(ticker)) yhTicker = ticker + '.SA'; 
+        let yhTicker = ticker; let fund = rawFundData[ticker] || {}; let tGoogle = fund.tickerGoogle || '';
+        if (tGoogle.startsWith('BCBA:')) yhTicker = ticker + '.BA'; else if (['PETR3', 'ABEV3', 'VALE3'].includes(ticker)) yhTicker = ticker + '.SA'; 
         
         const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yhTicker}?period1=${oneYearAgo}&period2=${now}&interval=1d`;
         const proxyUrl = `${CONFIG.PROXY_URL}${encodeURIComponent(targetUrl)}`;
         
         try {
-            const res = await fetch(proxyUrl);
-            if (!res.ok) return;
-            const data = await res.json();
-            
-            const result = data.chart.result[0];
-            const quote = result.indicators.quote[0];
-            
-            let closes=[], highs=[], lows=[], volumes=[];
-            for(let i=0; i<quote.close.length; i++){
-                if(quote.close[i] !== null && quote.high[i] !== null && quote.low[i] !== null && quote.volume[i] !== null) {
-                    closes.push(quote.close[i]); highs.push(quote.high[i]); lows.push(quote.low[i]); volumes.push(quote.volume[i]);
-                }
-            }
-            
-            if (closes.length > 50) {
-                const len = closes.length;
-                const currentPrice = closes[len - 1];
-
-                let dailyChange = len >= 2 ? (((currentPrice - closes[len - 2]) / closes[len - 2]) * 100) : null;
-                let perf1M = len >= 21 ? (((currentPrice - closes[len - 21]) / closes[len - 21]) * 100) : null;
-                let perf6M = len >= 126 ? (((currentPrice - closes[len - 126]) / closes[len - 126]) * 100) : null;
-                let perf1Y = len >= 252 ? (((currentPrice - closes[len - 252]) / closes[len - 252]) * 100) : null;
-
-                const sma50 = calcSMA(closes, 50); const sma200 = calcSMA(closes, 200);
+            const resChart = await fetch(proxyUrl);
+            if (resChart.ok) {
+                const data = await resChart.json();
+                const result = data.chart.result[0]; const quote = result.indicators.quote[0];
+                const timestamps = result.timestamp;
                 
-                let distSMA200 = null;
-                if (sma200 && sma200 > 0) distSMA200 = ((currentPrice - sma200) / sma200) * 100;
+                let closes=[], highs=[], lows=[], volumes=[], validDates=[];
+                for(let i=0; i<quote.close.length; i++){
+                    if(quote.close[i] !== null && quote.high[i] !== null && quote.low[i] !== null && quote.volume[i] !== null) {
+                        closes.push(quote.close[i]); highs.push(quote.high[i]); lows.push(quote.low[i]); volumes.push(quote.volume[i]);
+                        validDates.push(new Date(timestamps[i] * 1000));
+                    }
+                }
+                
+                if (closes.length > 50) {
+                    const len = closes.length; const currentPrice = closes[len - 1];
 
-                let crossStatus = '-';
-                if (sma50 && sma200) crossStatus = sma50 > sma200 ? 'Golden Cross 📈' : 'Death Cross 📉';
+                    let dailyChange = len >= 2 ? (((currentPrice - closes[len - 2]) / closes[len - 2]) * 100) : null;
+                    let perf1M = len >= 21 ? (((currentPrice - closes[len - 21]) / closes[len - 21]) * 100) : null;
+                    let perf3M = len >= 63 ? (((currentPrice - closes[len - 63]) / closes[len - 63]) * 100) : null;
+                    let perf6M = len >= 126 ? (((currentPrice - closes[len - 126]) / closes[len - 126]) * 100) : null;
+                    let perf1Y = len >= 252 ? (((currentPrice - closes[len - 252]) / closes[len - 252]) * 100) : null;
 
-                techMap[ticker] = {
-                    currentPrice: currentPrice, changePct: dailyChange,
-                    perf1M: perf1M, perf6M: perf6M, perf1Y: perf1Y,
-                    rsi: calcRSI(closes, 14), mfi: calcMFI(highs, lows, closes, volumes, 14), macd: calcMACD(closes),
-                    stochK: calcStoch(highs, lows, closes, 14), atr: calcATR(highs, lows, closes, 14),
-                    sma20: calcSMA(closes, 20), sma50: sma50, sma200: sma200, ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50),
-                    distSMA200: distSMA200, crossStatus: crossStatus,
-                    ...calcBollinger(closes, 20, 2)
-                };
+                    let perfYTD = null;
+                    const currentYear = new Date().getFullYear();
+                    let firstIdxYTD = validDates.findIndex(d => d.getFullYear() === currentYear);
+                    if (firstIdxYTD !== -1 && firstIdxYTD < len - 1) {
+                        perfYTD = (((currentPrice - closes[firstIdxYTD]) / closes[firstIdxYTD]) * 100);
+                    }
+
+                    const sma50 = calcSMA(closes, 50); const sma200 = calcSMA(closes, 200); const ema20 = calcEMA(closes, 20);
+                    let distSMA200 = null; if (sma200 && sma200 > 0) distSMA200 = ((currentPrice - sma200) / sma200) * 100;
+                    let distEMA20 = null; if (ema20 && ema20 > 0) distEMA20 = ((currentPrice - ema20) / ema20) * 100;
+                    let crossStatus = '-'; if (sma50 && sma200) crossStatus = sma50 > sma200 ? 'Golden Cross 📈' : 'Death Cross 📉';
+
+                    techMap[ticker] = {
+                        currentPrice: currentPrice, changePct: dailyChange,
+                        perf1M: perf1M, perf3M: perf3M, perf6M: perf6M, perfYTD: perfYTD, perf1Y: perf1Y,
+                        rsi: calcRSI(closes, 14), mfi: calcMFI(highs, lows, closes, volumes, 14), macd: calcMACD(closes), stochK: calcStoch(highs, lows, closes, 14), atr: calcATR(highs, lows, closes, 14),
+                        sma20: calcSMA(closes, 20), sma50: sma50, sma200: sma200, ema20: ema20, ema50: calcEMA(closes, 50),
+                        distSMA200: distSMA200, distEMA20: distEMA20, crossStatus: crossStatus,
+                        ...calcBollinger(closes, 20, 2)
+                    };
+                }
             }
         } catch (e) {}
     }));
@@ -308,7 +242,7 @@ function getColor(val, type) {
     if (type === 'macd') { return num > 0 ? 'positive' : 'negative'; } 
     if (type === 'stoch') { if (num > 80) return 'negative'; if (num < 20) return 'positive'; return 'warning'; } 
     if (type === 'change') { return num >= 0 ? 'positive' : 'negative'; } 
-    if (type === 'distSMA') { if (num > 30) return 'negative'; if (num < -15) return 'positive'; return 'warning'; } 
+    if (type === 'distSMA' || type === 'distEMA') { if (num > 30) return 'negative'; if (num < -15) return 'positive'; return 'warning'; } 
     if (type === 'ey') { if (num < 3) return 'negative'; if (num > 5) return 'positive'; return 'warning'; } 
     return 'neutral'; 
 }
@@ -316,42 +250,96 @@ function getColor(val, type) {
 function matchSearchScanner(text, searchStr) { 
     if (!searchStr) return true; 
     const normalize = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); 
-    const normalizedText = normalize(text); 
-    const terms = normalize(searchStr).split(/\s+/).filter(t => t); 
+    const normalizedText = normalize(text); const terms = normalize(searchStr).split(/\s+/).filter(t => t); 
     return terms.every(term => normalizedText.includes(term)); 
 }
 
 btnToggleFilters.addEventListener("click", () => { scannerFiltersPanel.style.display = scannerFiltersPanel.style.display === 'none' ? 'block' : 'none'; });
+
 btnApplyFilters.addEventListener("click", () => {
     currentFilters.peMax = parseFloat(document.getElementById("filterPeMax").value) || null;
+    currentFilters.epsMin = parseFloat(document.getElementById("filterEpsMin").value) || null;
+    currentFilters.betaMax = parseFloat(document.getElementById("filterBetaMax").value) || null;
     currentFilters.rsiMin = parseFloat(document.getElementById("filterRsiMin").value) || null;
     currentFilters.rsiMax = parseFloat(document.getElementById("filterRsiMax").value) || null;
+    currentFilters.macd = document.getElementById("filterMacd").value;
     currentFilters.distSmaMax = parseFloat(document.getElementById("filterDistSmaMax").value) || null;
+    currentFilters.perf1YMin = parseFloat(document.getElementById("filterPerf1YMin").value) || null;
     currentFilters.trend = document.getElementById("filterTrend").value;
     renderScanner();
 });
+
 btnClearFilters.addEventListener("click", () => {
-    document.getElementById("filterPeMax").value = ""; document.getElementById("filterRsiMin").value = "";
-    document.getElementById("filterRsiMax").value = ""; document.getElementById("filterDistSmaMax").value = "";
+    document.getElementById("filterPeMax").value = ""; 
+    document.getElementById("filterEpsMin").value = ""; 
+    document.getElementById("filterBetaMax").value = ""; 
+    document.getElementById("filterRsiMin").value = "";
+    document.getElementById("filterRsiMax").value = ""; 
+    document.getElementById("filterMacd").value = ""; 
+    document.getElementById("filterDistSmaMax").value = "";
+    document.getElementById("filterPerf1YMin").value = ""; 
     document.getElementById("filterTrend").value = "";
-    currentFilters = { peMax: null, rsiMin: null, rsiMax: null, distSmaMax: null, trend: "" };
+    
+    currentFilters = { peMax: null, epsMin: null, betaMax: null, rsiMin: null, rsiMax: null, macd: "", distSmaMax: null, perf1YMin: null, trend: "" };
     renderScanner();
 });
 
+// --- RENDER Y ORDENAMIENTO DE ESCÁNER ---
 function renderScanner() {
     const search = searchScannerInput.value.trim();
     let filtered = scannerData;
     
     if (search !== "") filtered = filtered.filter(item => matchSearchScanner(`${item.ticker} ${item.name}`, search));
     if (currentFilters.peMax !== null) filtered = filtered.filter(i => i.pe !== null && i.pe <= currentFilters.peMax && i.pe > 0);
+    if (currentFilters.epsMin !== null) filtered = filtered.filter(i => i.eps !== null && i.eps >= currentFilters.epsMin);
+    if (currentFilters.betaMax !== null) filtered = filtered.filter(i => i.beta !== null && i.beta <= currentFilters.betaMax);
     if (currentFilters.rsiMin !== null) filtered = filtered.filter(i => i.rsi !== null && i.rsi >= currentFilters.rsiMin);
     if (currentFilters.rsiMax !== null) filtered = filtered.filter(i => i.rsi !== null && i.rsi <= currentFilters.rsiMax);
+    if (currentFilters.macd === "pos") filtered = filtered.filter(i => i.macd !== null && i.macd > 0);
+    if (currentFilters.macd === "neg") filtered = filtered.filter(i => i.macd !== null && i.macd < 0);
     if (currentFilters.distSmaMax !== null) filtered = filtered.filter(i => i.distSMA200 !== null && parseFloat(i.distSMA200) <= currentFilters.distSmaMax);
+    if (currentFilters.perf1YMin !== null) filtered = filtered.filter(i => i.perf1Y !== null && i.perf1Y >= currentFilters.perf1YMin);
     if (currentFilters.trend !== "") filtered = filtered.filter(i => i.crossStatus && i.crossStatus.includes(currentFilters.trend));
+
+    // Lógica de ordenamiento
+    filtered.sort((a, b) => {
+        let valA = a[scannerSort.col];
+        let valB = b[scannerSort.col];
+
+        let nullVal = scannerSort.asc ? Infinity : -Infinity;
+        if (valA === null || valA === undefined || valA === '-') valA = nullVal;
+        if (valB === null || valB === undefined || valB === '-') valB = nullVal;
+
+        if (['ticker', 'name', 'currency', 'crossStatus'].includes(scannerSort.col)) {
+            valA = (valA === Infinity || valA === -Infinity) ? "zzzz" : valA.toString().toLowerCase();
+            valB = (valB === Infinity || valB === -Infinity) ? "zzzz" : valB.toString().toLowerCase();
+        } else {
+            valA = parseFloat(valA);
+            valB = parseFloat(valB);
+        }
+
+        if (valA < valB) return scannerSort.asc ? -1 : 1;
+        if (valA > valB) return scannerSort.asc ? 1 : -1;
+        return 0;
+    });
 
     if (scannerViewMode === 'tech') buildTechTable(filtered); else buildFundTable(filtered);
     updateCompareUI();
 }
+
+// LISTENERS DE ORDENAMIENTO PARA SCANNER
+document.querySelectorAll('#usaScannerView th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (scannerSort.col === col) { scannerSort.asc = !scannerSort.asc; } 
+        else { scannerSort.col = col; scannerSort.asc = true; }
+        
+        document.querySelectorAll('#usaScannerView th.sortable').forEach(el => el.classList.remove('asc', 'desc'));
+        th.classList.add(scannerSort.asc ? 'asc' : 'desc');
+        renderScanner();
+    });
+});
+// ----------------------------------------
 
 btnRefreshScanner.addEventListener("click", () => { initScanner(true); });
 searchScannerInput.addEventListener("input", renderScanner); 
@@ -366,29 +354,18 @@ toggleScannerViewBtn.addEventListener("click", () => {
     renderScanner();
 });
 
-// --- LÓGICA DEL NUEVO PANEL FLOTANTE DE COMPARACIÓN ---
 function updateCompareUI() {
     const floatingPanel = document.getElementById("floatingComparePanel");
     const countSpan = document.getElementById("compareCount");
     const tagsContainer = document.getElementById("compareTagsContainer");
 
     if (compareSelection.length > 0) {
-        floatingPanel.style.display = "flex";
-        countSpan.innerText = compareSelection.length;
-        
+        floatingPanel.style.display = "flex"; countSpan.innerText = compareSelection.length;
         tagsContainer.innerHTML = compareSelection.map(ticker => `
-            <div class="compare-tag">
-                <strong>${ticker}</strong>
-                <span class="remove-tag-btn" data-ticker="${ticker}" title="Quitar">✕</span>
-            </div>
+            <div class="compare-tag"><strong>${ticker}</strong><span class="remove-tag-btn" data-ticker="${ticker}" title="Quitar">✕</span></div>
         `).join("");
-    } else {
-        floatingPanel.style.display = "none";
-    }
-
-    document.querySelectorAll(".compare-cb").forEach(cb => { 
-        cb.checked = compareSelection.includes(cb.value); 
-    });
+    } else { floatingPanel.style.display = "none"; }
+    document.querySelectorAll(".compare-cb").forEach(cb => { cb.checked = compareSelection.includes(cb.value); });
 }
 
 function handleCompareCheckbox(e) {
@@ -402,11 +379,7 @@ function handleCompareCheckbox(e) {
 
 document.addEventListener("change", (e) => { if (e.target.classList.contains("compare-cb")) handleCompareCheckbox(e); });
 
-// Gestión de clics globales (Botones X, Borrar Todos, Ir a comparar, Detalle de Activo y Retroceder)
 document.addEventListener("click", (e) => {
-    
-    // --- CORRECCIÓN DEL BUBBLING: Abrir Detalle ---
-    // Usamos .closest() para atrapar el clic aunque el usuario toque el texto interno (<strong> o <small>)
     const clickableCell = e.target.closest('.clickable-cell');
     if (clickableCell) {
         const row = clickableCell.closest('.scanner-row');
@@ -415,75 +388,50 @@ document.addEventListener("click", (e) => {
             showAssetDetail(row.dataset.ticker);
         }
     }
-    // ----------------------------------------------
-
-    if (e.target.classList.contains("remove-tag-btn")) {
-        const tickerToRemove = e.target.dataset.ticker;
-        compareSelection = compareSelection.filter(t => t !== tickerToRemove);
-        updateCompareUI();
-    }
-
-    if (e.target.id === "btnClearCompare") {
-        compareSelection = [];
-        updateCompareUI();
-    }
-
+    if (e.target.classList.contains("remove-tag-btn")) { const tickerToRemove = e.target.dataset.ticker; compareSelection = compareSelection.filter(t => t !== tickerToRemove); updateCompareUI(); }
+    if (e.target.id === "btnClearCompare") { compareSelection = []; updateCompareUI(); }
     if (e.target.id === "btnGoToCompare") {
         savedScrollPosition = window.scrollY || document.documentElement.scrollTop;
-        buildCompareView();
-        scannerListView.style.display = "none";
-        scannerCompareView.style.display = "block";
-        window.scrollTo(0, 0); 
+        buildCompareView(); scannerListView.style.display = "none"; scannerCompareView.style.display = "block"; window.scrollTo(0, 0); 
     }
-
     if (e.target.id === "btnBackToScanner" || e.target.closest("#btnBackToScanner")) {
-        scannerDetailView.style.display = "none"; 
-        scannerListView.style.display = "block";
+        scannerDetailView.style.display = "none"; scannerListView.style.display = "block";
         setTimeout(() => window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }), 15);
     }
-    
     if (e.target.id === "btnBackFromCompare" || e.target.closest("#btnBackFromCompare")) {
-        scannerCompareView.style.display = "none"; 
-        scannerListView.style.display = "block";
+        scannerCompareView.style.display = "none"; scannerListView.style.display = "block";
         setTimeout(() => window.scrollTo({ top: savedScrollPosition, behavior: 'instant' }), 15);
     }
 });
-// ---------------------------------------------------------
 
 function buildFundTable(data) {
     scannerFundResults.innerHTML = "";
     if (data.length === 0) return;
 
     document.querySelector("#scannerFundContainer th:nth-child(5)").innerHTML = `Precio Actual`;
-    document.querySelector("#scannerFundContainer th:nth-child(6)").innerHTML = `Market Cap (USD) <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en bolsa.<br><br>Large Cap: > $10B<br>Mid Cap: $2B - $10B<br>Small Cap: < $2B</div></div>`;
-    document.querySelector("#scannerFundContainer th:nth-child(7)").innerHTML = `PER <div class="tooltip">?<div class="tooltiptext">Años para recuperar la inversión.<br><br><b style="color:#00ff00">Comprar (Barato):</b> < 15<br><b style="color:#ff0044">Vender (Caro):</b> > 25</div></div>`;
-    document.querySelector("#scannerFundContainer th:nth-child(8)").innerHTML = `BPA (USD) <div class="tooltip">?<div class="tooltiptext">Beneficio neto por cada acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Gana dinero)<br><b style="color:#ff0044">Vender:</b> < 0 (Da pérdidas)</div></div>`;
-    document.querySelector("#scannerFundContainer th:nth-child(9)").innerHTML = `Beta <div class="tooltip">?<div class="tooltiptext">Volatilidad frente al mercado global.<br><br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff0044">Agresiva:</b> > 1.2</div></div>`;
-    document.querySelector("#scannerFundContainer th:nth-child(10)").innerHTML = `Rend. Beneficio <div class="tooltip">?<div class="tooltiptext">Porcentaje de ganancia real anual (EPS en USD / Precio en USD).<br><br><b style="color:#00ff00">Comprar:</b> > 5%<br><b style="color:#ff0044">Vender:</b> < 3%</div></div>`;
+    document.querySelector("#scannerFundContainer th:nth-child(6)").innerHTML = `Market Cap <div class="tooltip">?<div class="tooltiptext">Tamaño total en bolsa.<br><br><b style="color:#00ff00">Sólida:</b> > 10B<br><b style="color:#ff0044">Riesgo:</b> < 2B</div></div>`;
+    document.querySelector("#scannerFundContainer th:nth-child(7)").innerHTML = `PER <div class="tooltip">?<div class="tooltiptext">Años para recuperar inversión.<br><br><b style="color:#00ff00">Comprar:</b> < 15<br><b style="color:#ff0044">Vender:</b> > 25</div></div>`;
+    document.querySelector("#scannerFundContainer th:nth-child(8)").innerHTML = `BPA (USD) <div class="tooltip">?<div class="tooltiptext">Beneficio por acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div>`;
+    document.querySelector("#scannerFundContainer th:nth-child(9)").innerHTML = `Earn. Yield <div class="tooltip">?<div class="tooltiptext">Rentabilidad real anual.<br><br><b style="color:#00ff00">Comprar:</b> > 5%<br><b style="color:#ff0044">Vender:</b> < 3%</div></div>`;
+    document.querySelector("#scannerFundContainer th:nth-child(10)").innerHTML = `Drawdown <div class="tooltip">?<div class="tooltiptext">Caída desde el pico anual.<br><br><b style="color:#00ff00">Comprar:</b> < -20%<br><b style="color:#ff0044">Vender:</b> > -5%</div></div>`;
 
     scannerFundResults.innerHTML = data.map(item => {
-        const sym = item.currency === 'USD' ? 'u$s' : '$';
-        const colorMoneda = item.currency === 'USD' ? '#10b981' : '#00f7ff';
+        const sym = item.currency === 'USD' ? 'u$s' : '$'; const colorMoneda = item.currency === 'USD' ? '#10b981' : '#00f7ff';
         const priceDisp = item.currency === 'ARS' ? new Intl.NumberFormat('es-AR', {maximumFractionDigits: 0}).format(item.price) : fNum(item.price);
         let cbChecked = compareSelection.includes(item.ticker) ? "checked" : "";
 
-        return `
-            <tr class="scanner-row" data-ticker="${item.ticker}">
-                <td><input type="checkbox" class="compare-cb" value="${item.ticker}" ${cbChecked}></td>
-                <td class="clickable-cell"><strong>${item.ticker}</strong></td>
-                <td class="clickable-cell"><small style="color:#9ca3af;">${item.name.substring(0, 15)}</small></td>
-                <td class="clickable-cell"><small style="color:${colorMoneda}; font-weight:bold;">${item.currency}</small></td>
-                <td class="clickable-cell">${sym} ${priceDisp}</td>
-                <td class="clickable-cell" style="color:#00f7ff;">${fmtBigNum(item.mcap)}</td>
-                <td class="clickable-cell ${getColor(item.pe, 'pe')}">${fNum(item.pe)}</td>
-                <td class="clickable-cell ${getColor(item.eps, 'eps')}">${fNum(item.eps)}</td>
-                <td class="clickable-cell ${getColor(item.beta, 'beta')}">${fNum(item.beta)}</td>
-                <td class="clickable-cell ${getColor(item.earnYield, 'ey')}">${item.earnYield ? fNum(item.earnYield) + '%' : '-'}</td>
-                <td class="clickable-cell">${fmtBigNum(item.volAvg)}</td>
-                <td class="clickable-cell" style="color:#f59e0b;">${fNum(item.yearLow)}</td>
-                <td class="clickable-cell" style="color:#00ff00;">${fNum(item.yearHigh)}</td>
-            </tr>
-        `;
+        return `<tr class="scanner-row" data-ticker="${item.ticker}">
+            <td><input type="checkbox" class="compare-cb" value="${item.ticker}" ${cbChecked}></td>
+            <td class="clickable-cell"><strong>${item.ticker}</strong></td>
+            <td class="clickable-cell"><small style="color:#9ca3af;">${item.name.substring(0, 15)}</small></td>
+            <td class="clickable-cell"><small style="color:${colorMoneda}; font-weight:bold;">${item.currency}</small></td>
+            <td class="clickable-cell">${sym} ${priceDisp}</td>
+            <td class="clickable-cell" style="color:#00f7ff;">${fmtBigNum(item.mcap)}</td>
+            <td class="clickable-cell ${getColor(item.pe, 'pe')}">${fNum(item.pe)}</td>
+            <td class="clickable-cell ${getColor(item.eps, 'eps')}">${fNum(item.eps)}</td>
+            <td class="clickable-cell ${getColor(item.earnYield, 'ey')}">${item.earnYield ? fNum(item.earnYield) + '%' : '-'}</td>
+            <td class="clickable-cell ${getColor(item.distHigh, 'change')}">${item.distHigh ? fNum(item.distHigh) + '%' : '-'}</td>
+        </tr>`;
     }).join("");
 }
 
@@ -491,77 +439,56 @@ function buildTechTable(data) {
     scannerTechResults.innerHTML = "";
     if (data.length === 0) return;
 
-    document.querySelector("#scannerTechContainer th:nth-child(3)").innerHTML = `Precio Actual`;
-    document.querySelector("#scannerTechContainer th:nth-child(4)").innerHTML = `RSI 14 <div class="tooltip">?<div class="tooltiptext">Índice de Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div>`;
-    document.querySelector("#scannerTechContainer th:nth-child(5)").innerHTML = `MACD <div class="tooltip">?<div class="tooltiptext">Convergencia/Divergencia de Medias.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Fuerza alcista)<br><b style="color:#ff0044">Vender:</b> < 0 (Fuerza bajista)</div></div>`;
-    document.querySelector("#scannerTechContainer th:nth-child(6)").innerHTML = `Stoch %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico.<br><br><b style="color:#00ff00">Comprar:</b> < 20 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 80 (Sobrecompra)</div></div>`;
-    document.querySelector("#scannerTechContainer th:nth-child(10)").innerHTML = `Boll Sup <div class="tooltip">?<div class="tooltiptext">Techo probabilístico del precio.<br><br><b style="color:#ff0044">Vender/Alerta:</b> Si el precio lo toca o supera.</div></div>`;
-    document.querySelector("#scannerTechContainer th:nth-child(11)").innerHTML = `Boll Inf <div class="tooltip">?<div class="tooltiptext">Piso probabilístico del precio.<br><br><b style="color:#00ff00">Comprar/Rebote:</b> Si el precio lo perfora o toca.</div></div>`;
-    document.querySelector("#scannerTechContainer th:nth-child(12)").innerHTML = `Tendencia <div class="tooltip">?<div class="tooltiptext">Cruce de Medias Móviles.<br><br><b style="color:#00ff00">Comprar (Golden):</b> SMA 50 > 200<br><b style="color:#ff0044">Vender (Death):</b> SMA 50 < 200</div></div>`;
+    document.querySelector("#scannerTechContainer th:nth-child(4)").innerHTML = `RSI 14 <div class="tooltip">?<div class="tooltiptext">Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35<br><b style="color:#ff0044">Vender:</b> > 65</div></div>`;
+    document.querySelector("#scannerTechContainer th:nth-child(5)").innerHTML = `MACD <div class="tooltip">?<div class="tooltiptext">Convergencia de Medias.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div>`;
+    document.querySelector("#scannerTechContainer th:nth-child(6)").innerHTML = `Stoch %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico.<br><br><b style="color:#00ff00">Comprar:</b> < 20<br><b style="color:#ff0044">Vender:</b> > 80</div></div>`;
+    document.querySelector("#scannerTechContainer th:nth-child(10)").innerHTML = `Boll Sup <div class="tooltip">?<div class="tooltiptext">Techo probabilístico.<br><br><b style="color:#ff0044">Vender:</b> Si toca el techo</div></div>`;
+    document.querySelector("#scannerTechContainer th:nth-child(11)").innerHTML = `Boll Inf <div class="tooltip">?<div class="tooltiptext">Piso probabilístico.<br><br><b style="color:#00ff00">Comprar:</b> Si toca el piso</div></div>`;
+    document.querySelector("#scannerTechContainer th:nth-child(12)").innerHTML = `Tendencia <div class="tooltip">?<div class="tooltiptext">Cruce de Medias.<br><br><b style="color:#00ff00">Comprar:</b> Golden Cross<br><b style="color:#ff0044">Vender:</b> Death Cross</div></div>`;
 
     scannerTechResults.innerHTML = data.map(item => {
         let trendColor = item.crossStatus.includes('Golden') ? 'positive' : (item.crossStatus.includes('Death') ? 'negative' : 'warning');
-        const sym = item.currency === 'USD' ? 'u$s' : '$';
-        const priceDisp = item.currency === 'ARS' ? new Intl.NumberFormat('es-AR', {maximumFractionDigits: 0}).format(item.price) : fNum(item.price);
+        const sym = item.currency === 'USD' ? 'u$s' : '$'; const priceDisp = item.currency === 'ARS' ? new Intl.NumberFormat('es-AR', {maximumFractionDigits: 0}).format(item.price) : fNum(item.price);
         let cbChecked = compareSelection.includes(item.ticker) ? "checked" : "";
 
-        return `
-            <tr class="scanner-row" data-ticker="${item.ticker}">
-                <td><input type="checkbox" class="compare-cb" value="${item.ticker}" ${cbChecked}></td>
-                <td class="clickable-cell"><strong>${item.ticker}</strong></td>
-                <td class="clickable-cell">${sym} ${priceDisp}</td>
-                <td class="clickable-cell ${getColor(item.rsi, 'rsi')}" style="font-weight: bold;">${fNum(item.rsi)}</td>
-                <td class="clickable-cell ${getColor(item.macd, 'macd')}">${fNum(item.macd)}</td>
-                <td class="clickable-cell ${getColor(item.stochK, 'stoch')}">${fNum(item.stochK)}</td>
-                <td class="clickable-cell">${fNum(item.sma20)}</td>
-                <td class="clickable-cell">${fNum(item.sma50)}</td>
-                <td class="clickable-cell" style="border-right: 1px dashed #374151;">${fNum(item.sma200)}</td>
-                <td class="clickable-cell" style="color:#ff0044;">${fNum(item.bollUpper)}</td>
-                <td class="clickable-cell" style="color:#00ff00;">${fNum(item.bollLower)}</td>
-                <td class="clickable-cell ${trendColor}" style="font-weight: bold;">${item.crossStatus.split(' ')[0]}</td>
-            </tr>
-        `;
+        return `<tr class="scanner-row" data-ticker="${item.ticker}">
+            <td><input type="checkbox" class="compare-cb" value="${item.ticker}" ${cbChecked}></td>
+            <td class="clickable-cell"><strong>${item.ticker}</strong></td>
+            <td class="clickable-cell">${sym} ${priceDisp}</td>
+            <td class="clickable-cell ${getColor(item.rsi, 'rsi')}" style="font-weight: bold;">${fNum(item.rsi)}</td>
+            <td class="clickable-cell ${getColor(item.macd, 'macd')}">${fNum(item.macd)}</td>
+            <td class="clickable-cell ${getColor(item.stochK, 'stoch')}">${fNum(item.stochK)}</td>
+            <td class="clickable-cell">${fNum(item.sma20)}</td>
+            <td class="clickable-cell">${fNum(item.sma50)}</td>
+            <td class="clickable-cell" style="border-right: 1px dashed #374151;">${fNum(item.sma200)}</td>
+            <td class="clickable-cell" style="color:#ff0044;">${fNum(item.bollUpper)}</td>
+            <td class="clickable-cell" style="color:#00ff00;">${fNum(item.bollLower)}</td>
+            <td class="clickable-cell ${trendColor}" style="font-weight: bold;">${item.crossStatus.split(' ')[0]}</td>
+        </tr>`;
     }).join("");
 }
 
-// --- VISTA COMPARADOR VERTICAL ---
 function buildCompareView() {
     const assets = compareSelection.map(ticker => scannerData.find(d => d.ticker === ticker)).filter(x => x);
     if(assets.length === 0) return;
 
-    compareTable.style.borderCollapse = "collapse";
-    compareTable.style.width = "100%";
-
+    compareTable.style.borderCollapse = "collapse"; compareTable.style.width = "100%";
     let headers = `<tr><th style="width: 250px; position: sticky; top: -1px; background-color: #0b0f1a; z-index: 20; border-bottom: 2px solid #374151; text-align: left; padding: 15px;">Índice / Métrica</th>`;
-    assets.forEach(a => { 
-        headers += `<th style="position: sticky; top: -1px; background-color: #0b0f1a; z-index: 20; border-bottom: 2px solid #374151; text-align: center; padding: 15px;">
-                        <h3 style="color:#00f7ff; margin:0; font-size:24px;">${a.ticker}</h3>
-                        <small style="color:#9ca3af;">${a.name}</small>
-                    </th>`; 
-    });
+    assets.forEach(a => { headers += `<th style="position: sticky; top: -1px; background-color: #0b0f1a; z-index: 20; border-bottom: 2px solid #374151; text-align: center; padding: 15px;"><h3 style="color:#00f7ff; margin:0; font-size:24px;">${a.ticker}</h3><small style="color:#9ca3af;">${a.name}</small></th>`; });
     headers += `</tr>`;
 
     const createRow = (labelHTML, prop, isPct = false, useColor = null, isPrice = false, isBigNum = false) => {
         let row = `<tr><td style="padding: 10px; border-bottom: 1px solid #1f2937; background-color: #111827;"><strong>${labelHTML}</strong></td>`;
         assets.forEach(a => {
-            let val = a[prop];
-            let colorClass = useColor ? getColor(val, useColor) : "";
-            let displayVal = val !== null && val !== undefined ? val : '-';
-            
+            let val = a[prop]; let colorClass = useColor ? getColor(val, useColor) : ""; let displayVal = val !== null && val !== undefined ? val : '-';
             if (val !== null && val !== '-') {
-                if (isPct) displayVal = fNum(val) + '%';
-                else if (isBigNum) displayVal = fmtBigNum(val);
-                else if (isPrice) {
-                    let sym = a.currency === 'USD' ? 'u$s' : '$';
-                    displayVal = a.currency === 'ARS' ? `${sym} ${new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(val)}` : `${sym} ${fNum(val)}`;
-                } else if (!isNaN(val) && prop !== 'crossStatus') {
-                    displayVal = fNum(val);
-                }
+                if (isPct) displayVal = fNum(val) + '%'; else if (isBigNum) displayVal = fmtBigNum(val);
+                else if (isPrice) { let sym = a.currency === 'USD' ? 'u$s' : '$'; displayVal = a.currency === 'ARS' ? `${sym} ${new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(val)}` : `${sym} ${fNum(val)}`; } 
+                else if (!isNaN(val) && prop !== 'crossStatus') displayVal = fNum(val);
             }
             row += `<td class="${colorClass}" style="text-align:center; padding: 10px; border-bottom: 1px solid #1f2937; background-color: #111827;">${displayVal}</td>`;
         });
-        row += `</tr>`;
-        return row;
+        row += `</tr>`; return row;
     };
 
     const ttStyle = `style="left: 30px; top: -5px; bottom: auto; right: auto; transform: none; width: 220px; z-index: 99999;"`;
@@ -570,37 +497,37 @@ function buildCompareView() {
     html += createRow(`Moneda Operativa`, "currency");
     html += createRow(`Precio Actual`, "price", false, null, true);
     
-    html += `<tr><td colspan="${assets.length + 1}" style="background: rgba(255,255,255,0.05); color:#fff; font-weight:bold; text-align:center; padding: 10px;">FUNDAMENTALES Y RENDIMIENTO (USD)</td></tr>`;
-    html += createRow(`PER <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Años para recuperar la inversión.<br><br><b style="color:#00ff00">Comprar:</b> < 15<br><b style="color:#ff0044">Vender:</b> > 25</div></div>`, "pe", false, 'pe');
-    html += createRow(`BPA / EPS <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Beneficio neto por cada acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div>`, "eps", false, 'eps');
-    html += createRow(`Rend. Beneficio <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rentabilidad real anual (EPS/Precio).<br><br><b style="color:#00ff00">Atractivo:</b> > 5%<br><b style="color:#ff0044">Pobre:</b> < 3%</div></div>`, "earnYield", true, 'ey');
-    html += createRow(`Beta <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Volatilidad frente al mercado global.<br><br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff0044">Agresiva:</b> > 1.2</div></div>`, "beta", false, 'beta');
-    html += createRow(`Market Cap <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Tamaño total de la empresa en bolsa.</div></div>`, "mcap", false, null, false, true);
-    html += createRow(`Vol Promedio <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Cantidad media de acciones operadas por día.</div></div>`, "volAvg", false, null, false, true);
-    html += createRow(`Máx 52s <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Precio máximo alcanzado en el último año.</div></div>`, "yearHigh", false, null, true);
-    html += createRow(`Mín 52s <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Precio mínimo tocado en el último año.</div></div>`, "yearLow", false, null, true);
-    html += createRow(`Variación Hoy <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Cambio porcentual del precio respecto a la rueda anterior.</div></div>`, "changePct", true, 'change');
-    html += createRow(`Rend. 1 Mes <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento del último mes.</div></div>`, "perf1M", true, 'change');
-    html += createRow(`Rend. 6 Meses <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento del último semestre.</div></div>`, "perf6M", true, 'change');
-    html += createRow(`Rend. 1 Año <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento de los últimos 12 meses.</div></div>`, "perf1Y", true, 'change');
-    html += createRow(`Dist. al Máx <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Caída desde su pico histórico anual (Drawdown).</div></div>`, "distHigh", true, 'change');
-    html += createRow(`Dist. al Mín <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Subida desde su piso histórico anual.</div></div>`, "distLow", true, 'change');
+    html += `<tr><td colspan="${assets.length + 1}" style="background: rgba(255,255,255,0.05); color:#fff; font-weight:bold; text-align:center; padding: 10px;">FUNDAMENTALES (USD)</td></tr>`;
+    html += createRow(`Market Cap <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Tamaño de empresa en bolsa.<br><br><b style="color:#00ff00">Comprar (Sólida):</b> > 10B<br><b style="color:#ff0044">Vender (Riesgo):</b> < 2B</div></div>`, "mcap", false, null, false, true);
+    html += createRow(`PER (P/E) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Valor Cotización / Resultado.<br><br><b style="color:#00ff00">Comprar:</b> < 15<br><b style="color:#ff0044">Vender:</b> > 25</div></div>`, "pe", false, 'pe');
+    html += createRow(`BPA (EPS) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Beneficio por Acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div>`, "eps", false, 'eps');
+    html += createRow(`Earn. Yield <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rentabilidad real (Inversa PER).<br><br><b style="color:#00ff00">Comprar:</b> > 5%<br><b style="color:#ff0044">Vender:</b> < 3%</div></div>`, "earnYield", true, 'ey');
+    html += createRow(`Beta (Riesgo) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Volatilidad frente al mercado.<br><br><b style="color:#00ff00">Comprar (Defensa):</b> < 1.0<br><b style="color:#ff0044">Vender (Agresiva):</b> > 1.2</div></div>`, "beta", false, 'beta');
+    html += createRow(`Vol Promedio <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Liquidez diaria operada.<br><br><b style="color:#00ff00">Comprar (Líquida):</b> > 1M<br><b style="color:#ff0044">Vender (Riesgo):</b> < 500k</div></div>`, "volAvg", false, null, false, true);
+
+    html += `<tr><td colspan="${assets.length + 1}" style="background: rgba(255,255,255,0.05); color:#fff; font-weight:bold; text-align:center; padding: 10px;">RENDIMIENTO HISTÓRICO</td></tr>`;
+    html += createRow(`Variación Hoy <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Cambio porcentual del día.<br><br><b style="color:#00ff00">Comprar:</b> > +2%<br><b style="color:#ff0044">Vender:</b> < -2%</div></div>`, "changePct", true, 'change');
+    html += createRow(`Rend. 1 Mes <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento a 30 días.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div>`, "perf1M", true, 'change');
+    html += createRow(`Rend. 3 Meses <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento trimestral.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div>`, "perf3M", true, 'change');
+    html += createRow(`Rend. 6 Meses <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento semestral.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div>`, "perf6M", true, 'change');
+    html += createRow(`Rend. YTD <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento año en curso.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div>`, "perfYTD", true, 'change');
+    html += createRow(`Rend. 1 Año <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Rendimiento interanual.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div>`, "perf1Y", true, 'change');
+    html += createRow(`Máx 52s <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Techo del último año.<br><br><b style="color:#00ff00">Comprar:</b> Lejos del Máx<br><b style="color:#ff0044">Vender:</b> Toca el Máx</div></div>`, "yearHigh", false, null, true);
+    html += createRow(`Mín 52s <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Piso del último año.<br><br><b style="color:#00ff00">Comprar:</b> Toca el Mín<br><b style="color:#ff0044">Vender:</b> Lejos del Mín</div></div>`, "yearLow", false, null, true);
+    html += createRow(`Dist. al Máx <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Caída desde el pico anual.<br><br><b style="color:#00ff00">Comprar:</b> < -20%<br><b style="color:#ff0044">Vender:</b> > -5%</div></div>`, "distHigh", true, 'change');
+    html += createRow(`Dist. al Mín <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Subida desde el piso anual.<br><br><b style="color:#00ff00">Comprar:</b> < +5%<br><b style="color:#ff0044">Vender:</b> > +50%</div></div>`, "distLow", true, 'change');
 
     html += `<tr><td colspan="${assets.length + 1}" style="background: rgba(255,255,255,0.05); color:#fff; font-weight:bold; text-align:center; padding: 10px;">TÉCNICOS Y TENDENCIA</td></tr>`;
-    html += createRow(`Tendencia <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Cruce de Medias Móviles.<br><br><b style="color:#00ff00">Comprar (Golden):</b> SMA 50 > 200<br><b style="color:#ff0044">Vender (Death):</b> SMA 50 < 200</div></div>`, "crossStatus");
-    html += createRow(`RSI (14) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Índice de Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div>`, "rsi", false, 'rsi');
-    html += createRow(`MFI (Flujo) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Índice de Flujo de Dinero (RSI + Volumen).</div></div>`, "mfi", false, 'mfi');
-    html += createRow(`MACD <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Convergencia de Medias.</div></div>`, "macd", false, 'macd');
-    html += createRow(`Stoch %K <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Oscilador Estocástico.</div></div>`, "stochK", false, 'stoch');
-    html += createRow(`ATR (Volat) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Variación diaria promedio del precio en dinero.</div></div>`, "atr");
-    html += createRow(`Dist. SMA 200 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Alejamiento porcentual de la media histórica anual.</div></div>`, "distSMA200", true, 'distSMA');
-    html += createRow(`EMA 20 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Exponencial (1 mes).</div></div>`, "ema20", false, null, true);
-    html += createRow(`EMA 50 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Exponencial (1 trimestre).</div></div>`, "ema50", false, null, true);
-    html += createRow(`SMA 20 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Simple (1 mes).</div></div>`, "sma20", false, null, true);
-    html += createRow(`SMA 50 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Simple (1 trimestre).</div></div>`, "sma50", false, null, true);
-    html += createRow(`SMA 200 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Media Móvil Simple (Anual).</div></div>`, "sma200", false, null, true);
-    html += createRow(`Boll Sup <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Techo probabilístico del precio.</div></div>`, "bollUpper", false, null, true);
-    html += createRow(`Boll Inf <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Piso probabilístico del precio.</div></div>`, "bollLower", false, null, true);
+    html += createRow(`Tendencia <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Cruce de Medias Móviles.<br><br><b style="color:#00ff00">Comprar:</b> Golden Cross<br><b style="color:#ff0044">Vender:</b> Death Cross</div></div>`, "crossStatus");
+    html += createRow(`RSI (14) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35<br><b style="color:#ff0044">Vender:</b> > 65</div></div>`, "rsi", false, 'rsi');
+    html += createRow(`MACD <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Impulso direccional.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div>`, "macd", false, 'macd');
+    html += createRow(`Stoch %K <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Oscilador Estocástico.<br><br><b style="color:#00ff00">Comprar:</b> < 20<br><b style="color:#ff0044">Vender:</b> > 80</div></div>`, "stochK", false, 'stoch');
+    html += createRow(`MFI (Flujo) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Flujo de dinero.<br><br><b style="color:#00ff00">Comprar:</b> < 30<br><b style="color:#ff0044">Vender:</b> > 70</div></div>`, "mfi", false, 'mfi');
+    html += createRow(`ATR (Volat) <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Variación diaria promedio. Ayuda a definir el Stop Loss.<br><br><b style="color:#00ff00">Comprar:</b> Baja Volat.<br><b style="color:#ff0044">Vender:</b> Alta Volat.</div></div>`, "atr");
+    html += createRow(`Dist. SMA 200 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Distancia a la media anual.<br><br><b style="color:#00ff00">Comprar:</b> < -15%<br><b style="color:#ff0044">Vender:</b> > +30%</div></div>`, "distSMA200", true, 'distSMA');
+    html += createRow(`Dist. EMA 20 <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Distancia a media rápida.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < -5%</div></div>`, "distEMA20", true, 'distEMA');
+    html += createRow(`Boll Sup <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Techo probabilístico.<br><br><b style="color:#ff0044">Vender:</b> Toca el techo</div></div>`, "bollUpper", false, null, true);
+    html += createRow(`Boll Inf <div class="tooltip">?<div class="tooltiptext" ${ttStyle}>Piso probabilístico.<br><br><b style="color:#00ff00">Comprar:</b> Toca el piso</div></div>`, "bollLower", false, null, true);
     
     html += `</tbody>`;
     compareTable.innerHTML = html;
@@ -618,28 +545,38 @@ function showAssetDetail(ticker) {
     const sym = item.currency === 'USD' ? 'u$s' : '$';
     const priceDisp = item.currency === 'ARS' ? new Intl.NumberFormat('es-AR', {maximumFractionDigits: 0}).format(item.price) : fNum(item.price);
 
+    let score1M = 0;
+    if (item.rsi !== null) { if (item.rsi > 30 && item.rsi < 50) score1M++; else if (item.rsi > 65) score1M--; }
+    if (item.macd !== null) { if (item.macd > 0) score1M++; else score1M--; }
+    if (item.distEMA20 !== null) { if (item.distEMA20 > 0 && item.distEMA20 < 5) score1M++; else if (item.distEMA20 < -2) score1M--; }
+    if (item.perf1M !== null) { if (item.perf1M > 0) score1M++; else score1M--; }
+
+    let signal1M = "NEUTRAL"; let color1M = "#f59e0b"; 
+    if (score1M >= 2) { signal1M = "COMPRAR"; color1M = "#00ff00"; }
+    else if (score1M <= -1) { signal1M = "VENDER"; color1M = "#ff0044"; }
+
     let score6M = 0;
-    if (item.rsi !== null) { if (item.rsi > 30 && item.rsi < 55) score6M++; else if (item.rsi > 65) score6M--; }
-    if (item.macd !== null) { if (item.macd > 0) score6M++; else score6M--; }
-    if (item.price !== null && item.ema50 !== null) { if (item.price > item.ema50) score6M++; else score6M--; }
-    if (item.eps !== null) { if (item.eps > 0) score6M++; else score6M--; } 
-    if (item.perf1M !== null) { if (item.perf1M > 0) score6M++; else score6M--; } 
+    if (item.crossStatus.includes('Golden')) score6M++; else score6M--;
+    if (item.distSMA200 !== null) { if (item.distSMA200 > 0 && item.distSMA200 < 15) score6M++; else if (item.distSMA200 > 25) score6M--; }
+    if (item.perf6M !== null) { if (item.perf6M > 0) score6M++; else score6M--; }
+    if (item.pe !== null) { if (item.pe > 0 && item.pe < 25) score6M++; else score6M--; }
 
     let signal6M = "NEUTRAL"; let color6M = "#f59e0b"; 
     if (score6M >= 2) { signal6M = "COMPRAR"; color6M = "#00ff00"; }
     else if (score6M <= -1) { signal6M = "VENDER"; color6M = "#ff0044"; }
 
     let score3Y = 0;
-    if (item.pe !== null) { if (item.pe > 0 && item.pe < 18) score3Y++; else if (item.pe > 25 || item.pe < 0) score3Y--; }
+    if (item.pe !== null) { if (item.pe > 0 && item.pe < 15) score3Y++; else if (item.pe > 25 || item.pe < 0) score3Y--; }
     if (item.eps !== null) { if (item.eps > 0) score3Y++; else score3Y--; }
-    if (item.earnYield !== null) { if (item.earnYield > 5) score3Y++; }
-    if (item.distHigh !== null) { if (item.distHigh < -20) score3Y++; else if (item.distHigh > -5) score3Y--; }
-    if (item.distSMA200 !== null) { if (item.distSMA200 > 30) score3Y--; }
-    if (item.crossStatus.includes('Golden')) score3Y++;
+    if (item.earnYield !== null) { if (item.earnYield > 5) score3Y++; else if (item.earnYield < 2) score3Y--; }
+    if (item.distHigh !== null) { if (item.distHigh < -20) score3Y++; else if (item.distHigh > -5) score3Y--; } 
+    if (item.perf1Y !== null) { if (item.perf1Y > 0) score3Y++; else score3Y--; } 
 
     let signal3Y = "NEUTRAL"; let color3Y = "#f59e0b";
-    if (score3Y >= 2) { signal3Y = "COMPRAR"; color3Y = "#00ff00"; }
+    if (score3Y >= 3) { signal3Y = "COMPRAR"; color3Y = "#00ff00"; }
     else if (score3Y <= -1) { signal3Y = "VENDER"; color3Y = "#ff0044"; }
+
+    let trendColor = item.crossStatus.includes('Golden') ? 'positive' : (item.crossStatus.includes('Death') ? 'negative' : 'warning');
 
     scannerDetailContent.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 15px 25px; border-radius: 12px; border: 1px solid #1f2937;">
@@ -649,14 +586,19 @@ function showAssetDetail(ticker) {
             </div>
             
             <div style="display: flex; gap: 15px;">
-                <div style="background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 130px; position: relative;">
-                    <div class="tooltip" style="position:absolute; top:5px; right:5px; font-size:10px;">?<div class="tooltiptext" style="width:200px; left:-180px;">Prioriza Tendencia y Momentum. Exige MACD positivo, Precio sobre EMA 50 y ganancias reales (BPA>0).</div></div>
-                    <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">6 Meses (Híbrido)</div>
+                <div style="background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 110px; position: relative;">
+                    <div class="tooltip" style="position:absolute; top:5px; right:5px; font-size:10px;">?<div class="tooltiptext" style="width:200px; left:-180px;">Swing Trading. Prioriza el momentum a corto plazo: RSI sano, MACD positivo y precio montado a la EMA 20.</div></div>
+                    <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">1 Mes (Swing)</div>
+                    <div style="font-weight: bold; color: ${color1M}; font-size: 16px; letter-spacing: 1px;">${signal1M}</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 110px; position: relative;">
+                    <div class="tooltip" style="position:absolute; top:5px; right:5px; font-size:10px;">?<div class="tooltiptext" style="width:200px; left:-180px;">Trend Following. Exige Golden Cross, ganancias estables (PER<25) y que no esté en burbuja (Dist SMA200 < 15%).</div></div>
+                    <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">6 Meses (Trend)</div>
                     <div style="font-weight: bold; color: ${color6M}; font-size: 16px; letter-spacing: 1px;">${signal6M}</div>
                 </div>
-                <div style="background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 130px; position: relative;">
-                    <div class="tooltip" style="position:absolute; top:5px; right:5px; font-size:10px;">?<div class="tooltiptext" style="width:200px; left:-180px;">Prioriza Value Investing. Exige PER < 18, alto Earnings Yield y castigo en el precio (Drawdown > 20%).</div></div>
-                    <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">2-3 Años (Valor)</div>
+                <div style="background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 110px; position: relative;">
+                    <div class="tooltip" style="position:absolute; top:5px; right:5px; font-size:10px;">?<div class="tooltiptext" style="width:200px; left:-180px;">Deep Value. Ignora técnicos. Exige PER<15, BPA>0, alto Yield y comprar con descuento (Drawdown > 20%).</div></div>
+                    <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">2-3 Años (Value)</div>
                     <div style="font-weight: bold; color: ${color3Y}; font-size: 16px; letter-spacing: 1px;">${signal3Y}</div>
                 </div>
             </div>
@@ -665,41 +607,46 @@ function showAssetDetail(ticker) {
         <div style="display: flex; flex-direction: column; gap: 20px;">
             
             <div class="card complex-card">
-                <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Índices Técnicos y Tendencia</h3>
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Fundamentales de Valoración</h3>
                 <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px;">
-                    <div class="kpi-box"><span class="label">Var Hoy <div class="tooltip">?<div class="tooltiptext">Cambio porcentual del precio respecto a la rueda anterior.<br><br><b style="color:#00ff00">Fuerte:</b> > +2%<br><b style="color:#ff0044">Débil:</b> < -2%</div></div></span><span class="val ${getColor(item.changePct, 'change')}">${item.changePct ? fNum(item.changePct) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Tendencia <div class="tooltip">?<div class="tooltiptext">Cruce de Medias Móviles.<br><br><b style="color:#00ff00">Comprar (Golden):</b> SMA 50 > 200<br><b style="color:#ff0044">Vender (Death):</b> SMA 50 < 200</div></div></span><span class="val" style="color:#fff; font-size:12px;">${item.crossStatus}</span></div>
-                    <div class="kpi-box"><span class="label">RSI (14) <div class="tooltip">?<div class="tooltiptext">Índice de Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div></span><span class="val ${getColor(item.rsi, 'rsi')}">${fNum(item.rsi)}</span></div>
-                    <div class="kpi-box"><span class="label">MFI (Flujo) <div class="tooltip">?<div class="tooltiptext">Índice de Flujo de Dinero (RSI + Volumen).<br><br><b style="color:#00ff00">Comprar:</b> < 30 (Entra dinero)<br><b style="color:#ff0044">Vender:</b> > 70 (Sale dinero)</div></div></span><span class="val ${getColor(item.mfi, 'mfi')}">${fNum(item.mfi)}</span></div>
-                    <div class="kpi-box"><span class="label">MACD <div class="tooltip">?<div class="tooltiptext">Convergencia de Medias.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Fuerza alcista)<br><b style="color:#ff0044">Vender:</b> < 0 (Fuerza bajista)</div></div></span><span class="val ${getColor(item.macd, 'macd')}">${fNum(item.macd)}</span></div>
-                    <div class="kpi-box"><span class="label">Stoch %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico.<br><br><b style="color:#00ff00">Comprar:</b> < 20 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 80 (Sobrecompra)</div></div></span><span class="val ${getColor(item.stochK, 'stoch')}">${fNum(item.stochK)}</span></div>
-                    <div class="kpi-box"><span class="label">ATR (Volat) <div class="tooltip">?<div class="tooltiptext">Variación diaria promedio del precio en dinero. Útil para definir dónde colocar el Stop Loss.</div></div></span><span class="val" style="color:#fff;">${fNum(item.atr)}</span></div>
-                    <div class="kpi-box"><span class="label">Dist. SMA 200 <div class="tooltip">?<div class="tooltiptext">Alejamiento porcentual de la media histórica anual.<br><br><b style="color:#00ff00">Comprar:</b> < -15% (Oportunidad)<br><b style="color:#ff0044">Vender:</b> > +30% (Burbuja)</div></div></span><span class="val ${getColor(item.distSMA200, 'distSMA')}">${item.distSMA200 ? fNum(item.distSMA200) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">EMA 20 <div class="tooltip">?<div class="tooltiptext">Media Móvil Exponencial (1 mes).<br><br><b style="color:#00ff00">Alcista:</b> Precio > EMA 20</div></div></span><span class="val" style="color:#fff;">${fNum(item.ema20)}</span></div>
-                    <div class="kpi-box"><span class="label">EMA 50 <div class="tooltip">?<div class="tooltiptext">Media Móvil Exponencial (1 trimestre).<br><br><b style="color:#00ff00">Alcista:</b> Precio > EMA 50</div></div></span><span class="val" style="color:#fff;">${fNum(item.ema50)}</span></div>
-                    <div class="kpi-box"><span class="label">SMA 50 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Mediano Plazo). Actúa como soporte o resistencia dinámica.</div></div></span><span class="val" style="color:#fff;">${fNum(item.sma50)}</span></div>
-                    <div class="kpi-box"><span class="label">SMA 200 <div class="tooltip">?<div class="tooltiptext">Media Móvil Simple (Largo Plazo). La frontera principal entre un mercado Bull (Toro) y Bear (Oso).</div></div></span><span class="val" style="color:#fff;">${fNum(item.sma200)}</span></div>
-                    <div class="kpi-box"><span class="label">Boll Sup <div class="tooltip">?<div class="tooltiptext">Techo probabilístico del precio.<br><br><b style="color:#ff0044">Vender/Alerta:</b> Si el precio lo toca o supera.</div></div></span><span class="val" style="color:#ff0044;">${fNum(item.bollUpper)}</span></div>
-                    <div class="kpi-box"><span class="label">Boll Inf <div class="tooltip">?<div class="tooltiptext">Piso probabilístico del precio.<br><br><b style="color:#00ff00">Comprar/Rebote:</b> Si el precio lo perfora o toca.</div></div></span><span class="val" style="color:#00ff00;">${fNum(item.bollLower)}</span></div>
+                    <div class="kpi-box"><span class="label">Market Cap <div class="tooltip">?<div class="tooltiptext">Tamaño de empresa en bolsa.<br><br><b style="color:#00ff00">Comprar (Sólida):</b> > 10B<br><b style="color:#ff0044">Vender (Riesgo):</b> < 2B</div></div></span><span class="val" style="color:#00f7ff;">${fmtBigNum(item.mcap)}</span></div>
+                    <div class="kpi-box"><span class="label">PER (P/E) <div class="tooltip">?<div class="tooltiptext">Valor Cotización / Resultado.<br><br><b style="color:#00ff00">Comprar:</b> < 15<br><b style="color:#ff0044">Vender:</b> > 25</div></div></span><span class="val ${getColor(item.pe, 'pe')}">${fNum(item.pe)}</span></div>
+                    <div class="kpi-box"><span class="label">BPA (EPS) <div class="tooltip">?<div class="tooltiptext">Beneficio neto por acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div></span><span class="val ${getColor(item.eps, 'eps')}">${fNum(item.eps)}</span></div>
+                    <div class="kpi-box"><span class="label">Earn. Yield <div class="tooltip">?<div class="tooltiptext">Rentabilidad real (Inversa PER).<br><br><b style="color:#00ff00">Comprar:</b> > 5%<br><b style="color:#ff0044">Vender:</b> < 3%</div></div></span><span class="val ${getColor(item.earnYield, 'ey')}">${item.earnYield ? fNum(item.earnYield) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Beta (Riesgo) <div class="tooltip">?<div class="tooltiptext">Volatilidad vs mercado.<br><br><b style="color:#00ff00">Comprar (Defensa):</b> < 1.0<br><b style="color:#ff0044">Vender (Agresiva):</b> > 1.2</div></div></span><span class="val ${getColor(item.beta, 'beta')}">${fNum(item.beta)}</span></div>
+                    <div class="kpi-box"><span class="label">Vol. Promedio <div class="tooltip">?<div class="tooltiptext">Liquidez diaria operada.<br><br><b style="color:#00ff00">Comprar (Líquida):</b> > 1M<br><b style="color:#ff0044">Vender (Riesgo):</b> < 500k</div></div></span><span class="val" style="color:#fff;">${fmtBigNum(item.volAvg)}</span></div>
                 </div>
             </div>
 
             <div class="card complex-card">
-                <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Fundamentales y Rendimiento Histórico</h3>
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Análisis Técnico de Momentum</h3>
                 <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px;">
-                    <div class="kpi-box"><span class="label">Rend. 1 Mes <div class="tooltip">?<div class="tooltiptext">Rendimiento del último mes.<br><br><b style="color:#00ff00">Momentum Positivo:</b> > 0%</div></div></span><span class="val ${getColor(item.perf1M, 'change')}">${item.perf1M ? fNum(item.perf1M) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Rend. 6 Meses <div class="tooltip">?<div class="tooltiptext">Rendimiento del último semestre.<br><br><b style="color:#00ff00">Tendencia Fuerte:</b> > 0%</div></div></span><span class="val ${getColor(item.perf6M, 'change')}">${item.perf6M ? fNum(item.perf6M) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Rend. 1 Año <div class="tooltip">?<div class="tooltiptext">Rendimiento de los últimos 12 meses.<br><br><b style="color:#00ff00">Año Positivo:</b> > 0%</div></div></span><span class="val ${getColor(item.perf1Y, 'change')}">${item.perf1Y ? fNum(item.perf1Y) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">PER <div class="tooltip">?<div class="tooltiptext">Años para recuperar la inversión.<br><br><b style="color:#00ff00">Comprar (Barato):</b> < 15<br><b style="color:#ff0044">Vender (Caro):</b> > 25</div></div></span><span class="val ${getColor(item.pe, 'pe')}">${fNum(item.pe)}</span></div>
-                    <div class="kpi-box"><span class="label">Earn. Yield <div class="tooltip">?<div class="tooltiptext">Rentabilidad real anual de la empresa (Inversa del PER).<br><br><b style="color:#00ff00">Atractivo:</b> > 5%<br><b style="color:#ff0044">Pobre:</b> < 3%</div></div></span><span class="val ${getColor(item.earnYield, 'ey')}">${item.earnYield ? fNum(item.earnYield) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">BPA (EPS) <div class="tooltip">?<div class="tooltiptext">Beneficio neto por cada acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0 (Empresa rentable)<br><b style="color:#ff0044">Vender:</b> < 0 (Da pérdidas)</div></div></span><span class="val ${getColor(item.eps, 'eps')}">${fNum(item.eps)}</span></div>
-                    <div class="kpi-box"><span class="label">Beta (Riesgo) <div class="tooltip">?<div class="tooltiptext">Volatilidad frente al mercado global.<br><br><b style="color:#00ff00">Defensiva:</b> < 1.0<br><b style="color:#ff0044">Agresiva/Volátil:</b> > 1.2</div></div></span><span class="val ${getColor(item.beta, 'beta')}">${fNum(item.beta)}</span></div>
-                    <div class="kpi-box"><span class="label">Market Cap <div class="tooltip">?<div class="tooltiptext">Tamaño total de la empresa en bolsa.<br><br>Large Cap: > $10B<br>Mid Cap: $2B - $10B<br>Small Cap: < $2B</div></div></span><span class="val" style="color:#00f7ff;">${fmtBigNum(item.mcap)}</span></div>
-                    <div class="kpi-box"><span class="label">Vol Promedio <div class="tooltip">?<div class="tooltiptext">Cantidad media de acciones operadas por día. A mayor volumen, mayor liquidez y facilidad de venta.</div></div></span><span class="val" style="color:#fff;">${fmtBigNum(item.volAvg)}</span></div>
-                    <div class="kpi-box"><span class="label">Máx 52s <div class="tooltip">?<div class="tooltiptext">Precio máximo alcanzado en el último año. Actúa como fuerte resistencia psicológica.</div></div></span><span class="val" style="color:#00ff00;">${fNum(item.yearHigh)}</span></div>
-                    <div class="kpi-box"><span class="label">Mín 52s <div class="tooltip">?<div class="tooltiptext">Precio mínimo tocado en el último año. Actúa como fuerte soporte de compra.</div></div></span><span class="val" style="color:#ff0044;">${fNum(item.yearLow)}</span></div>
-                    <div class="kpi-box"><span class="label">Dist. al Máx <div class="tooltip">?<div class="tooltiptext">Caída desde su pico histórico anual (Drawdown).<br><br><b style="color:#00ff00">Comprar (Oferta):</b> < -20%</div></div></span><span class="val ${getColor(item.distHigh, 'change')}">${item.distHigh ? fNum(item.distHigh) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Dist. al Mín <div class="tooltip">?<div class="tooltiptext">Subida desde su piso histórico anual.<br><br><b style="color:#ff0044">Riesgo de rebote/venta:</b> > +50%</div></div></span><span class="val ${getColor(item.distLow, 'change')}">${item.distLow ? '+' + fNum(item.distLow) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Tendencia <div class="tooltip">?<div class="tooltiptext">Cruce de Medias Móviles.<br><br><b style="color:#00ff00">Comprar:</b> Golden Cross<br><b style="color:#ff0044">Vender:</b> Death Cross</div></div></span><span class="val ${trendColor}" style="font-size:12px;">${item.crossStatus.split(' ')[0]}</span></div>
+                    <div class="kpi-box"><span class="label">RSI (14) <div class="tooltip">?<div class="tooltiptext">Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35<br><b style="color:#ff0044">Vender:</b> > 65</div></div></span><span class="val ${getColor(item.rsi, 'rsi')}">${fNum(item.rsi)}</span></div>
+                    <div class="kpi-box"><span class="label">MACD <div class="tooltip">?<div class="tooltiptext">Impulso direccional.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div></span><span class="val ${getColor(item.macd, 'macd')}">${fNum(item.macd)}</span></div>
+                    <div class="kpi-box"><span class="label">Stoch %K <div class="tooltip">?<div class="tooltiptext">Oscilador Estocástico.<br><br><b style="color:#00ff00">Comprar:</b> < 20<br><b style="color:#ff0044">Vender:</b> > 80</div></div></span><span class="val ${getColor(item.stochK, 'stoch')}">${fNum(item.stochK)}</span></div>
+                    <div class="kpi-box"><span class="label">MFI (Flujo) <div class="tooltip">?<div class="tooltiptext">Flujo de Dinero (RSI+Vol).<br><br><b style="color:#00ff00">Comprar:</b> < 30<br><b style="color:#ff0044">Vender:</b> > 70</div></div></span><span class="val ${getColor(item.mfi, 'mfi')}">${fNum(item.mfi)}</span></div>
+                    <div class="kpi-box"><span class="label">ATR (Volat) <div class="tooltip">?<div class="tooltiptext">Variación diaria. Define tu Stop Loss.<br><br><b style="color:#00ff00">Comprar:</b> Baja volat.<br><b style="color:#ff0044">Vender:</b> Alta volat.</div></div></span><span class="val" style="color:#fff;">${fNum(item.atr)}</span></div>
+                    <div class="kpi-box"><span class="label">Dist. SMA 200 <div class="tooltip">?<div class="tooltiptext">Distancia a media anual.<br><br><b style="color:#00ff00">Comprar:</b> < -15%<br><b style="color:#ff0044">Vender:</b> > +30%</div></div></span><span class="val ${getColor(item.distSMA200, 'distSMA')}">${item.distSMA200 ? fNum(item.distSMA200) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Dist. EMA 20 <div class="tooltip">?<div class="tooltiptext">Distancia a media rápida.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < -5%</div></div></span><span class="val ${getColor(item.distEMA20, 'distEMA')}">${item.distEMA20 ? fNum(item.distEMA20) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Boll Sup <div class="tooltip">?<div class="tooltiptext">Techo probabilístico.<br><br><b style="color:#ff0044">Vender:</b> Toca el techo</div></div></span><span class="val" style="color:#ff0044;">${fNum(item.bollUpper)}</span></div>
+                    <div class="kpi-box"><span class="label">Boll Inf <div class="tooltip">?<div class="tooltiptext">Piso probabilístico.<br><br><b style="color:#00ff00">Comprar:</b> Toca el piso</div></div></span><span class="val" style="color:#00ff00;">${fNum(item.bollLower)}</span></div>
+                </div>
+            </div>
+
+            <div class="card complex-card">
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Rendimiento Histórico</h3>
+                <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px;">
+                    <div class="kpi-box"><span class="label">Var. Hoy <div class="tooltip">?<div class="tooltiptext">Cambio porcentual del día.<br><br><b style="color:#00ff00">Comprar:</b> > +2%<br><b style="color:#ff0044">Vender:</b> < -2%</div></div></span><span class="val ${getColor(item.changePct, 'change')}">${item.changePct ? fNum(item.changePct) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Rend. 1 Mes <div class="tooltip">?<div class="tooltiptext">Evolución de 30 días.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div></span><span class="val ${getColor(item.perf1M, 'change')}">${item.perf1M ? fNum(item.perf1M) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Rend. 3 Meses <div class="tooltip">?<div class="tooltiptext">Evolución trimestral.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div></span><span class="val ${getColor(item.perf3M, 'change')}">${item.perf3M ? fNum(item.perf3M) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Rend. 6 Meses <div class="tooltip">?<div class="tooltiptext">Evolución semestral.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div></span><span class="val ${getColor(item.perf6M, 'change')}">${item.perf6M ? fNum(item.perf6M) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Rend. YTD <div class="tooltip">?<div class="tooltiptext">Rendimiento año en curso.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div></span><span class="val ${getColor(item.perfYTD, 'change')}">${item.perfYTD ? fNum(item.perfYTD) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Rend. 1 Año <div class="tooltip">?<div class="tooltiptext">Evolución interanual.<br><br><b style="color:#00ff00">Comprar:</b> > 0%<br><b style="color:#ff0044">Vender:</b> < 0%</div></div></span><span class="val ${getColor(item.perf1Y, 'change')}">${item.perf1Y ? fNum(item.perf1Y) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Máx 52 Semanas <div class="tooltip">?<div class="tooltiptext">Techo del último año.<br><br><b style="color:#00ff00">Comprar:</b> Lejos del Máx<br><b style="color:#ff0044">Vender:</b> Toca el Máx</div></div></span><span class="val" style="color:#00ff00;">${fNum(item.yearHigh)}</span></div>
+                    <div class="kpi-box"><span class="label">Mín 52 Semanas <div class="tooltip">?<div class="tooltiptext">Piso del último año.<br><br><b style="color:#00ff00">Comprar:</b> Toca el Mín<br><b style="color:#ff0044">Vender:</b> Lejos del Mín</div></div></span><span class="val" style="color:#ff0044;">${fNum(item.yearLow)}</span></div>
+                    <div class="kpi-box"><span class="label">Dist. al Máx <div class="tooltip">?<div class="tooltiptext">Caída desde el pico anual.<br><br><b style="color:#00ff00">Comprar:</b> < -20%<br><b style="color:#ff0044">Vender:</b> > -5%</div></div></span><span class="val ${getColor(item.distHigh, 'change')}">${item.distHigh ? fNum(item.distHigh) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Dist. al Mín <div class="tooltip">?<div class="tooltiptext">Subida desde el piso anual.<br><br><b style="color:#00ff00">Comprar:</b> < +5%<br><b style="color:#ff0044">Vender:</b> > +50%</div></div></span><span class="val ${getColor(item.distLow, 'change')}">${item.distLow ? '+' + fNum(item.distLow) + '%' : '-'}</span></div>
                 </div>
             </div>
 

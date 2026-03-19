@@ -20,7 +20,6 @@ const globalChartAssetFilter = document.getElementById("globalChartAssetFilter")
 const marketResults = document.getElementById("results");
 
 export let instruments = [];
-// MEMORIA DE MONEDA: Recuperamos la preferencia o arrancamos en ARS (false)
 export let isUSD = localStorage.getItem('skyline_is_usd') === 'true';
 export let currentMepRate = 1000; 
 export let historicalMepRates = []; 
@@ -29,7 +28,9 @@ export let bolsaHoldingsArr = [];
 export let transactions = JSON.parse(localStorage.getItem('bolsa_transactions')) || [];
 export let livePricesMap = {}; 
 
-// APLICAR MEMORIA VISUAL AL CARGAR
+// ESTADO DE ORDENAMIENTO DEL MERCADO
+export let marketSort = { col: 'symbol', asc: true };
+
 if (isUSD) {
     currencySwitch.checked = true;
     labelARS.classList.remove("active-currency");
@@ -126,9 +127,10 @@ export function getAssetPerformance(ticker, period) {
         
         if (isUSD) prevPrice = prevPrice / getHistoricalMepRate(prevDateStr);
         
-        if (prevPrice > 0) return ((lastPrice - prevPrice) / prevPrice) * 100;
+        if (prevPrice > 0) return { pct: ((lastPrice - prevPrice) / prevPrice) * 100, diff: lastPrice - prevPrice };
         return null;
     }
+    else if (period === '1W') targetDate.setDate(today.getDate() - 7);
     else if (period === '1M') targetDate.setMonth(today.getMonth() - 1);
     else if (period === '6M') targetDate.setMonth(today.getMonth() - 6);
     else if (period === 'YTD') targetDate = new Date(today.getFullYear(), 0, 1);
@@ -154,7 +156,7 @@ export function getAssetPerformance(ticker, period) {
         pastPrice = pastPrice / getHistoricalMepRate(pastDateStr);
     }
 
-    if (pastPrice > 0) return ((lastPrice - pastPrice) / pastPrice) * 100;
+    if (pastPrice > 0) return { pct: ((lastPrice - pastPrice) / pastPrice) * 100, diff: lastPrice - pastPrice };
     return null;
 }
 
@@ -204,15 +206,21 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     const filteredCombined = combinedHoldings.filter(h => matchSearch(`${h.ticker} ${h.tag}`, filterText));
 
     const th1 = document.getElementById("globalThPnl1"); const th2 = document.getElementById("globalThPnl2");
-    if (currentTablePeriod === 'ALL') { th1.style.display = ""; th1.innerText = "P/L ($)"; th2.innerText = "P/L (%)"; } 
-    else { th1.style.display = "none"; th2.innerText = `Rend. Mercado (${currentTablePeriod})`; }
+    if (currentTablePeriod === 'ALL') { 
+        th1.style.display = ""; th1.innerText = "P/L ($)"; th2.innerText = "P/L (%)"; 
+    } else { 
+        th1.style.display = ""; th1.innerText = `P/L ($) (${currentTablePeriod})`; th2.innerText = `P/L (%) (${currentTablePeriod})`; 
+    }
 
     let html = filteredCombined.map(h => {
         let dispCur = isUSD ? h.currentUSD : h.currentARS; let dispPnl = isUSD ? h.pnlUSD : h.pnlARS;
         
         let pct1D = null;
         if (livePricesMap[h.ticker] && livePricesMap[h.ticker].pct_change !== undefined && !isUSD) pct1D = parseFloat(livePricesMap[h.ticker].pct_change);
-        else pct1D = getAssetPerformance(h.ticker, '1D');
+        else {
+            let perf1D = getAssetPerformance(h.ticker, '1D');
+            if (perf1D) pct1D = perf1D.pct;
+        }
         
         let badgeHtml = '';
         if (pct1D !== null && !isNaN(pct1D)) {
@@ -222,12 +230,20 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
 
         let pnlCellHtml = '';
         if (currentTablePeriod === 'ALL') {
-            pnlCellHtml = `<td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(dispPnl))}</td><td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>`;
+            const pnlStr = dispPnl >= 0 ? `+${sym}${formatMonto(dispPnl)}` : `-${sym}${formatMonto(Math.abs(dispPnl))}`;
+            const pctStr = h.pnlPct >= 0 ? `+${h.pnlPct.toFixed(2)}%` : `${h.pnlPct.toFixed(2)}%`;
+            pnlCellHtml = `<td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(pnlStr)}</td><td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(pctStr)}</td>`;
         } else {
             const perf = getAssetPerformance(h.ticker, currentTablePeriod);
-            const perfStr = perf !== null ? (perf > 0 ? '+' : '') + perf.toFixed(2) + '%' : '-';
-            const perfClass = perf !== null ? (perf >= 0 ? 'positive' : 'negative') : 'neutral';
-            pnlCellHtml = `<td colspan="2" style="text-align:center;" class="${perfClass}"><strong>${obfuscate(perfStr)}</strong></td>`;
+            if (perf !== null) {
+                const nominal = perf.diff * h.realQty;
+                const pctStr = (perf.pct >= 0 ? '+' : '') + perf.pct.toFixed(2) + '%';
+                const nomStr = (nominal >= 0 ? '+' : '-') + sym + formatMonto(Math.abs(nominal));
+                const pClass = perf.pct >= 0 ? 'positive' : 'negative';
+                pnlCellHtml = `<td class="${pClass}">${obfuscate(nomStr)}</td><td class="${pClass}">${obfuscate(pctStr)}</td>`;
+            } else {
+                pnlCellHtml = `<td class="neutral">-</td><td class="neutral">-</td>`;
+            }
         }
 
         return `<tr>
@@ -360,6 +376,7 @@ function renderPortfolio() {
 
         bolsaHoldingsArr.push({
             ticker: t, tag: actualDivisor === 100 ? "Bono/Letra" : "Bursátil", qtyStr: h.qty.toString(),
+            realQty: (h.qty / actualDivisor), 
             nativeSym: "$ ", nativePPC: h.investedARS / (h.qty / actualDivisor), nativePrice: livePriceARS,
             currentARS: isUSD ? currentVal * currentMepRate : currentVal, currentUSD: isUSD ? currentVal : currentVal / currentMepRate,
             pnlARS: (isUSD ? currentVal * currentMepRate : currentVal) - h.investedARS, pnlUSD: (isUSD ? currentVal : currentVal / currentMepRate) - h.investedUSD, pnlPct: pnlP
@@ -373,13 +390,19 @@ function renderPortfolio() {
     const filteredBolsa = bolsaHoldingsArr.filter(h => matchSearch(h.ticker, filterText));
 
     const th1 = document.getElementById("bursaThPnl1"); const th2 = document.getElementById("bursaThPnl2");
-    if (currentTablePeriod === 'ALL') { th1.style.display = ""; th1.innerText = "P/L ($)"; th2.innerText = "P/L (%)"; } 
-    else { th1.style.display = "none"; th2.innerText = `Rend. Mercado (${currentTablePeriod})`; }
+    if (currentTablePeriod === 'ALL') { 
+        th1.style.display = ""; th1.innerText = "P/L ($)"; th2.innerText = "P/L (%)"; 
+    } else { 
+        th1.style.display = ""; th1.innerText = `P/L ($) (${currentTablePeriod})`; th2.innerText = `P/L (%) (${currentTablePeriod})`; 
+    }
 
     let html = filteredBolsa.map(h => {
         let pct1D = null;
         if (livePricesMap[h.ticker] && livePricesMap[h.ticker].pct_change !== undefined && !isUSD) pct1D = parseFloat(livePricesMap[h.ticker].pct_change);
-        else pct1D = getAssetPerformance(h.ticker, '1D');
+        else {
+            let perf1D = getAssetPerformance(h.ticker, '1D');
+            if (perf1D) pct1D = perf1D.pct;
+        }
         
         let badgeHtml = '';
         if (pct1D !== null && !isNaN(pct1D)) {
@@ -389,12 +412,21 @@ function renderPortfolio() {
 
         let pnlCellHtml = '';
         if (currentTablePeriod === 'ALL') {
-            pnlCellHtml = `<td class="${(isUSD ? h.pnlUSD : h.pnlARS) >= 0 ? 'positive' : 'negative'}">${obfuscate(sym + formatMonto(isUSD ? h.pnlUSD : h.pnlARS))}</td><td class="${h.pnlPct >= 0 ? 'positive' : 'negative'}">${obfuscate(h.pnlPct.toFixed(2) + '%')}</td>`;
+            const dispPnl = isUSD ? h.pnlUSD : h.pnlARS;
+            const pnlStr = dispPnl >= 0 ? `+${sym}${formatMonto(dispPnl)}` : `-${sym}${formatMonto(Math.abs(dispPnl))}`;
+            const pctStr = h.pnlPct >= 0 ? `+${h.pnlPct.toFixed(2)}%` : `${h.pnlPct.toFixed(2)}%`;
+            pnlCellHtml = `<td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(pnlStr)}</td><td class="${dispPnl >= 0 ? 'positive' : 'negative'}">${obfuscate(pctStr)}</td>`;
         } else {
             const perf = getAssetPerformance(h.ticker, currentTablePeriod);
-            const perfStr = perf !== null ? (perf > 0 ? '+' : '') + perf.toFixed(2) + '%' : '-';
-            const perfClass = perf !== null ? (perf >= 0 ? 'positive' : 'negative') : 'neutral';
-            pnlCellHtml = `<td colspan="2" style="text-align:center;" class="${perfClass}"><strong>${obfuscate(perfStr)}</strong></td>`;
+            if (perf !== null) {
+                const nominal = perf.diff * h.realQty;
+                const pctStr = (perf.pct >= 0 ? '+' : '') + perf.pct.toFixed(2) + '%';
+                const nomStr = (nominal >= 0 ? '+' : '-') + sym + formatMonto(Math.abs(nominal));
+                const pClass = perf.pct >= 0 ? 'positive' : 'negative';
+                pnlCellHtml = `<td class="${pClass}">${obfuscate(nomStr)}</td><td class="${pClass}">${obfuscate(pctStr)}</td>`;
+            } else {
+                pnlCellHtml = `<td class="neutral">-</td><td class="neutral">-</td>`;
+            }
         }
 
         return `<tr>
@@ -441,7 +473,6 @@ async function updateCharts(labels, values, pnlPcts, colors) {
         .then(chart => { if (myDrawId !== bolsaDrawId) { if (chart) chart.destroy(); return; } if(chart) { lineChartInstance = chart; applyChartVisibility(); } }).catch(e => console.error("Error cargando histórico:", e));
 }
 
-// --- CONVERSIÓN HISTÓRICA DE TRANSACCIONES A USD ---
 function renderHistory() {
     const sym = isUSD ? "u$s " : "$ ";
     const filterText = document.getElementById("searchBursatilHistory")?.value || "";
@@ -451,7 +482,6 @@ function renderHistory() {
         let dispPrice = tx.price;
         let dispComm = tx.commission || 0;
         
-        // Si la vista está en USD, buscamos el MEP de ese día exacto y hacemos la división
         if (isUSD) {
             const txMep = getHistoricalMepRate(tx.date);
             dispPrice = tx.price / txMep;
@@ -469,7 +499,6 @@ function renderHistory() {
         </tr>`;
     }).join("");
 }
-// ----------------------------------------------------
 
 historyResults.addEventListener("click", (e) => {
     const target = e.target;
@@ -477,20 +506,48 @@ historyResults.addEventListener("click", (e) => {
     else if (target.classList.contains("btn-edit")) { const idToProcess = target.dataset.id; const tx = transactions.find(t => String(t.id) === String(idToProcess)); if(tx) { editingId = tx.id; document.getElementById("txTicker").value = tx.ticker; document.getElementById("txType").value = tx.type; document.getElementById("txQty").value = tx.qty; document.getElementById("txPrice").value = tx.price; document.getElementById("txComision").value = tx.commission || ""; document.getElementById("txDate").value = tx.date; document.getElementById("formTitle").innerText = "Editando Transacción"; document.getElementById("btnCancelEdit").style.display = "block"; openModal(); } }
 });
 
-function renderMarketTable() {
+// --- RENDER Y ORDENAMIENTO DE MERCADO ---
+export function renderMarketTable() {
     const sym = isUSD ? "u$s " : "$ "; const search = document.getElementById("searchInput").value.toLowerCase(); const activeCategory = document.querySelector(".categories .category.active")?.dataset.category || "all";
-    marketResults.innerHTML = instruments.filter(i => { if (!i.symbol) return false; const matchSearch = i.symbol.toLowerCase().includes(search); const matchCat = activeCategory === "all" || i.assetType === activeCategory; return matchSearch && matchCat; }).map(item => { const p = isUSD ? parseFloat(item.c) / currentMepRate : parseFloat(item.c); return `<tr><td>${item.symbol}</td><td>${sym}${formatPrecio(p)}</td><td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td><td>${formatMontoEntero(parseFloat(item.v))}</td><td>${formatPrecio(parseFloat(item.px_bid))}</td><td>${formatPrecio(parseFloat(item.px_ask))}</td></tr>`; }).join("");
+    
+    let filteredMarket = instruments.filter(i => { if (!i.symbol) return false; const matchSearch = i.symbol.toLowerCase().includes(search); const matchCat = activeCategory === "all" || i.assetType === activeCategory; return matchSearch && matchCat; });
+    
+    filteredMarket.sort((a, b) => {
+        let valA = a[marketSort.col]; let valB = b[marketSort.col];
+        if (['c', 'pct_change', 'v', 'px_bid', 'px_ask'].includes(marketSort.col)) {
+            valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0;
+        } else {
+            valA = (valA || "").toString().toLowerCase(); valB = (valB || "").toString().toLowerCase();
+        }
+        if (valA < valB) return marketSort.asc ? -1 : 1;
+        if (valA > valB) return marketSort.asc ? 1 : -1;
+        return 0;
+    });
+
+    marketResults.innerHTML = filteredMarket.map(item => { const p = isUSD ? parseFloat(item.c) / currentMepRate : parseFloat(item.c); return `<tr><td>${item.symbol}</td><td>${sym}${formatPrecio(p)}</td><td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td><td>${formatMontoEntero(parseFloat(item.v))}</td><td>${formatPrecio(parseFloat(item.px_bid))}</td><td>${formatPrecio(parseFloat(item.px_ask))}</td></tr>`; }).join("");
 }
+
+// LISTENERS DE ORDENAMIENTO PARA MERCADO
+document.querySelectorAll('#marketView th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (marketSort.col === col) { marketSort.asc = !marketSort.asc; } 
+        else { marketSort.col = col; marketSort.asc = true; }
+        document.querySelectorAll('#marketView th.sortable').forEach(el => el.classList.remove('asc', 'desc'));
+        th.classList.add(marketSort.asc ? 'asc' : 'desc');
+        renderMarketTable();
+    });
+});
+// ----------------------------------------
 
 document.getElementById("searchInput").addEventListener("input", renderMarketTable); 
 document.getElementById("btnCancelEdit").onclick = closeModal;
 
 document.querySelectorAll(".categories .category").forEach(btn => { btn.addEventListener("click", () => { document.querySelectorAll(".categories .category").forEach(el => el.classList.remove("active")); btn.classList.add("active"); renderMarketTable(); }); });
 
-// GUARDAMOS LA PREFERENCIA DE MONEDA EN LOCALSTORAGE AL CAMBIAR EL SWITCH
 currencySwitch.addEventListener("change", (e) => { 
     isUSD = e.target.checked; 
-    localStorage.setItem('skyline_is_usd', isUSD); // <--- Guarda la opción
+    localStorage.setItem('skyline_is_usd', isUSD);
 
     if (isUSD) { labelARS.classList.remove("active-currency"); labelUSD.classList.add("active-currency"); } 
     else { labelARS.classList.add("active-currency"); labelUSD.classList.remove("active-currency"); } 

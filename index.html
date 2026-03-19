@@ -74,26 +74,22 @@
                     <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
                         <div class="time-filters">
                             <button class="time-btn" data-period="1D">1D</button>
+                            <button class="time-btn" data-period="1W">1S</button>
                             <button class="time-btn" data-period="1M">1M</button>
                             <button class="time-btn" data-period="6M">6M</button>
                             <button class="time-btn" data-period="YTD">YTD</button>
                             <button class="time-btn" data-period="1Y">1Y</button>
                             <button class="time-btn active" data-period="ALL">Total</button>
                         </div>
-                        <input type="search" id="searchGlobalPortfolio" class="filter-input" placeholder="Filtrar activo..." autocomplete="off">
+                        <div class="input-wrapper">
+                            <input type="search" id="searchGlobalPortfolio" class="filter-input" placeholder="Filtrar activo..." autocomplete="off">
+                            <span class="clear-search-btn" title="Borrar">✕</span>
+                        </div>
                     </div>
                 </div>
                 <table>
                     <thead>
-                        <tr>
-                            <th>Activo</th>
-                            <th>Cant.</th>
-                            <th>PPC</th>
-                            <th>Precio Actual</th>
-                            <th>Valor Actual</th>
-                            <th id="globalThPnl1">P/L ($)</th>
-                            <th id="globalThPnl2">P/L (%)</th>
-                        </tr>
+                        <tr><th>Activo</th><th>Cant.</th><th>PPC</th><th>Precio Actual</th><th>Valor Actual</th><th id="globalThPnl1">P/L ($)</th><th id="globalThPnl2">P/L (%)</th></tr>
                     </thead>
                     <tbody id="globalPortfolioResults"></tbody>
                 </table>
@@ -104,43 +100,22 @@
                     <div class="chart-header-flex">
                         <h3>Evolución de Rentabilidad Global</h3>
                         <div class="chart-controls">
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="globalToggleNominal" checked>
-                                <span class="checkmark btn-nominal">Nominal ($)</span>
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="globalTogglePct" checked>
-                                <span class="checkmark btn-pct">Porcentual (%)</span>
-                            </label>
-                            <select id="globalChartAssetFilter" class="chart-select">
-                                <option value="ALL">Total Cartera</option>
-                            </select>
+                            <label class="custom-checkbox"><input type="checkbox" id="globalToggleNominal" checked><span class="checkmark btn-nominal">Nominal ($)</span></label>
+                            <label class="custom-checkbox"><input type="checkbox" id="globalTogglePct" checked><span class="checkmark btn-pct">Porcentual (%)</span></label>
+                            <select id="globalChartAssetFilter" class="chart-select"><option value="ALL">Total Cartera</option></select>
                         </div>
                     </div>
                     <canvas id="globalLineChart"></canvas>
                 </div>
                 <div class="charts-grid">
-                    <div class="chart-box">
-                        <h3>Composición Global</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="globalPieChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="chart-box">
-                        <h3>Rendimiento General (%)</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="globalBarChart"></canvas>
-                        </div>
-                    </div>
+                    <div class="chart-box"><h3>Composición Global</h3><div class="chart-wrapper"><canvas id="globalPieChart"></canvas></div></div>
+                    <div class="chart-box"><h3>Rendimiento General (%)</h3><div class="chart-wrapper"><canvas id="globalBarChart"></canvas></div></div>
                 </div>
             </div>
         </div>
 
         <div id="portfolioView" class="view-section">
-            <div class="table-header" style="margin-bottom: 20px;">
-                <h3 style="color: #fff;">📈 Cartera Bursátil (Acciones, CEDEARs y Bonos)</h3>
-            </div>
-
+            <div class="table-header" style="margin-bottom: 20px;"><h3 style="color: #fff;">📈 Cartera Bursátil (Acciones, CEDEARs y Bonos)</h3></div>
             <div class="dashboard-cards">
                 <div class="card complex-card card-activa">
                     <h3>Bolsa Activa</h3>
@@ -174,26 +149,22 @@
                     <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
                         <div class="time-filters">
                             <button class="time-btn" data-period="1D">1D</button>
+                            <button class="time-btn" data-period="1W">1S</button>
                             <button class="time-btn" data-period="1M">1M</button>
                             <button class="time-btn" data-period="6M">6M</button>
                             <button class="time-btn" data-period="YTD">YTD</button>
                             <button class="time-btn" data-period="1Y">1Y</button>
                             <button class="time-btn active" data-period="ALL">Total</button>
                         </div>
-                        <input type="search" id="searchBursatilPortfolio" class="filter-input" placeholder="Filtrar ticker..." autocomplete="off">
+                        <div class="input-wrapper">
+                            <input type="search" id="searchBursatilPortfolio" class="filter-input" placeholder="Filtrar ticker..." autocomplete="off">
+                            <span class="clear-search-btn" title="Borrar">✕</span>
+                        </div>
                     </div>
                 </div>
                 <table>
                     <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th>Cant.</th>
-                            <th>PPC</th>
-                            <th>Precio Actual</th>
-                            <th>Valor Actual</th>
-                            <th id="bursaThPnl1">P/L ($)</th>
-                            <th id="bursaThPnl2">P/L (%)</th>
-                        </tr>
+                        <tr><th>Ticker</th><th>Cant.</th><th>PPC</th><th>Precio Actual</th><th>Valor Actual</th><th id="bursaThPnl1">P/L ($)</th><th id="bursaThPnl2">P/L (%)</th></tr>
                     </thead>
                     <tbody id="portfolioResults"></tbody>
                 </table>
@@ -204,44 +175,22 @@
                     <div class="chart-header-flex">
                         <h3>Evolución Bursátil</h3>
                         <div class="chart-controls">
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="toggleNominal" checked>
-                                <span class="checkmark btn-nominal">Nominal ($)</span>
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="togglePct" checked>
-                                <span class="checkmark btn-pct">Porcentual (%)</span>
-                            </label>
-                            <select id="chartAssetFilter" class="chart-select">
-                                <option value="ALL">Total Cartera</option>
-                            </select>
+                            <label class="custom-checkbox"><input type="checkbox" id="toggleNominal" checked><span class="checkmark btn-nominal">Nominal ($)</span></label>
+                            <label class="custom-checkbox"><input type="checkbox" id="togglePct" checked><span class="checkmark btn-pct">Porcentual (%)</span></label>
+                            <select id="chartAssetFilter" class="chart-select"><option value="ALL">Total Cartera</option></select>
                         </div>
                     </div>
                     <canvas id="lineChart"></canvas>
                 </div>
                 <div class="charts-grid">
-                    <div class="chart-box">
-                        <h3>Composición Bursátil</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="pieChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="chart-box">
-                        <h3>Rendimiento Bursátil (%)</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="barChart"></canvas>
-                        </div>
-                    </div>
+                    <div class="chart-box"><h3>Composición Bursátil</h3><div class="chart-wrapper"><canvas id="pieChart"></canvas></div></div>
+                    <div class="chart-box"><h3>Rendimiento Bursátil (%)</h3><div class="chart-wrapper"><canvas id="barChart"></canvas></div></div>
                 </div>
             </div>
         </div>
 
         <div id="fciPortfolioView" class="view-section">
-            <div class="table-header" style="margin-bottom: 20px;">
-                <h3 style="color: #fff;">📊 Fondos Comunes de Inversión</h3>
-                <button id="btnOpenFciTxModal" class="btn-submit">➕ Nueva Transacción FCI</button>
-            </div>
-
+            <div class="table-header" style="margin-bottom: 20px;"><h3 style="color: #fff;">📊 Fondos Comunes de Inversión</h3><button id="btnOpenFciTxModal" class="btn-submit">➕ Nueva Transacción FCI</button></div>
             <div class="dashboard-cards">
                 <div class="card complex-card card-activa">
                     <h3>FCI Activos</h3>
@@ -275,27 +224,22 @@
                     <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
                         <div class="time-filters">
                             <button class="time-btn" data-period="1D">1D</button>
+                            <button class="time-btn" data-period="1W">1S</button>
                             <button class="time-btn" data-period="1M">1M</button>
                             <button class="time-btn" data-period="6M">6M</button>
                             <button class="time-btn" data-period="YTD">YTD</button>
                             <button class="time-btn" data-period="1Y">1Y</button>
                             <button class="time-btn active" data-period="ALL">Total</button>
                         </div>
-                        <input type="search" id="searchFciPortfolio" class="filter-input" placeholder="Filtrar fondo..." autocomplete="off">
+                        <div class="input-wrapper">
+                            <input type="search" id="searchFciPortfolio" class="filter-input" placeholder="Filtrar fondo..." autocomplete="off">
+                            <span class="clear-search-btn" title="Borrar">✕</span>
+                        </div>
                     </div>
                 </div>
                 <table>
                     <thead>
-                        <tr>
-                            <th>Fondo</th>
-                            <th>Moneda</th>
-                            <th>Cuotapartes</th>
-                            <th>PPC</th>
-                            <th>Precio Actual</th>
-                            <th>Valor Actual</th>
-                            <th id="fciThPnl1">P/L ($)</th>
-                            <th id="fciThPnl2">P/L (%)</th>
-                        </tr>
+                        <tr><th>Fondo</th><th>Moneda</th><th>Cuotapartes</th><th>PPC</th><th>Precio Actual</th><th>Valor Actual</th><th id="fciThPnl1">P/L ($)</th><th id="fciThPnl2">P/L (%)</th></tr>
                     </thead>
                     <tbody id="fciPortfolioResults"></tbody>
                 </table>
@@ -305,7 +249,10 @@
                 <div class="table-header">
                     <h3>Historial de Movimientos FCI</h3>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="search" id="searchFciHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
+                        <div class="input-wrapper">
+                            <input type="search" id="searchFciHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
+                            <span class="clear-search-btn" title="Borrar">✕</span>
+                        </div>
                         <div class="import-export-btns">
                             <button id="btnExportFci" class="btn-action">⬇ Exportar CSV</button>
                             <button id="btnImportFci" class="btn-action">⬆ Importar CSV</button>
@@ -314,17 +261,7 @@
                     </div>
                 </div>
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Fondo</th>
-                            <th>Operación</th>
-                            <th>Moneda</th>
-                            <th>Cuotapartes</th>
-                            <th>Precio</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Fecha</th><th>Fondo</th><th>Operación</th><th>Moneda</th><th>Cuotapartes</th><th>Precio</th><th>Acciones</th></tr></thead>
                     <tbody id="fciHistoryResults"></tbody>
                 </table>
             </div>
@@ -334,111 +271,68 @@
                     <span id="closeFciTxModal" class="close-modal">&times;</span>
                     <h3 id="fciFormTitle" style="margin-bottom:20px; color:#00f7ff; text-align:center;">Operación de FCI</h3>
                     <form id="fciTransactionForm" autocomplete="off">
-                        <div class="autocomplete-wrapper">
-                            <input type="text" id="fciTxTicker" placeholder="Buscar Fondo..." required>
-                            <ul id="fciTickerSuggestions" class="suggestions-list"></ul>
-                        </div>
-                        <select id="fciTxType">
-                            <option value="buy">Suscripción (Compra)</option>
-                            <option value="sell">Rescate (Venta)</option>
-                        </select>
-                        <select id="fciTxCurrency">
-                            <option value="ARS">Operado en PESOS (ARS)</option>
-                            <option value="USD">Operado en DÓLARES (USD)</option>
-                        </select>
+                        <div class="autocomplete-wrapper"><input type="text" id="fciTxTicker" placeholder="Buscar Fondo..." required><ul id="fciTickerSuggestions" class="suggestions-list"></ul></div>
+                        <select id="fciTxType"><option value="buy">Suscripción (Compra)</option><option value="sell">Rescate (Venta)</option></select>
+                        <select id="fciTxCurrency"><option value="ARS">Operado en PESOS (ARS)</option><option value="USD">Operado en DÓLARES (USD)</option></select>
                         <input type="number" id="fciTxQty" placeholder="Cant. de Cuotapartes (ej: 5000)" step="0.01" required>
                         <input type="number" id="fciTxPrice" placeholder="Precio cada 1000 cuotapartes" step="0.000001" required>
                         <input type="date" id="fciTxDate" required>
-                        <div class="form-actions" style="margin-top:10px;">
-                            <button type="submit" class="btn-submit" id="btnSubmitFciTx" style="width:100%;">Guardar FCI</button>
-                            <button type="button" class="btn-cancel" id="btnCancelFciEdit" style="display:none; width:100%; margin-top:10px;">Cancelar</button>
-                        </div>
+                        <div class="form-actions" style="margin-top:10px;"><button type="submit" class="btn-submit" id="btnSubmitFciTx" style="width:100%;">Guardar FCI</button><button type="button" class="btn-cancel" id="btnCancelFciEdit" style="display:none; width:100%; margin-top:10px;">Cancelar</button></div>
                     </form>
                 </div>
             </div>
         </div>
 
         <div id="transactionsView" class="view-section">
-            <div class="table-header" style="margin-bottom: 20px;">
-                <h3>Gestión Bursátil</h3>
-                <button id="btnOpenTxModal" class="btn-submit">➕ Nueva Transacción</button>
-            </div>
-
+            <div class="table-header" style="margin-bottom: 20px;"><h3>Gestión Bursátil</h3><button id="btnOpenTxModal" class="btn-submit">➕ Nueva Transacción</button></div>
             <div id="txModal" class="modal-overlay">
                 <div class="modal-content">
                     <span id="closeTxModal" class="close-modal">&times;</span>
                     <h3 id="formTitle" style="margin-bottom:20px; color:#00f7ff; text-align:center;">Agregar Transacción</h3>
                     <form id="transactionForm" autocomplete="off">
-                        <div class="autocomplete-wrapper">
-                            <input type="text" id="txTicker" placeholder="Ticker (ej: AAPL)" required>
-                            <ul id="tickerSuggestions" class="suggestions-list"></ul>
-                        </div>
-                        <select id="txType">
-                            <option value="buy">Compra</option>
-                            <option value="sell">Venta</option>
-                        </select>
+                        <div class="autocomplete-wrapper"><input type="text" id="txTicker" placeholder="Ticker (ej: AAPL)" required><ul id="tickerSuggestions" class="suggestions-list"></ul></div>
+                        <select id="txType"><option value="buy">Compra</option><option value="sell">Venta</option></select>
                         <input type="number" id="txQty" placeholder="Cantidad (Enteros)" step="1" required>
                         <input type="number" id="txPrice" placeholder="Precio Unitario ($)" step="0.01" required>
                         <input type="number" id="txComision" placeholder="Comisión y gastos ($)" step="0.01">
                         <input type="date" id="txDate" required>
-                        <div class="form-actions" style="display:flex; gap:10px; margin-top:10px;">
-                            <button type="submit" class="btn-submit" id="btnSubmitTx" style="flex:1;">Guardar</button>
-                            <button type="button" class="btn-cancel" id="btnCancelEdit" style="display:none; flex:1;">Cancelar</button>
-                        </div>
+                        <div class="form-actions" style="display:flex; gap:10px; margin-top:10px;"><button type="submit" class="btn-submit" id="btnSubmitTx" style="flex:1;">Guardar</button><button type="button" class="btn-cancel" id="btnCancelEdit" style="display:none; flex:1;">Cancelar</button></div>
                     </form>
                 </div>
             </div>
-
             <div class="table-container">
                 <div class="table-header">
                     <h3>Historial de Operaciones</h3>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="search" id="searchBursatilHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
-                        <div class="import-export-btns">
-                            <button id="btnExport" class="btn-action">⬇ Exportar CSV</button>
-                            <button id="btnImport" class="btn-action">⬆ Importar CSV</button>
-                            <input type="file" id="fileImport" accept=".csv" style="display: none;">
+                        <div class="input-wrapper">
+                            <input type="search" id="searchBursatilHistory" class="filter-input" placeholder="Filtrar operación..." autocomplete="off">
+                            <span class="clear-search-btn" title="Borrar">✕</span>
                         </div>
+                        <div class="import-export-btns"><button id="btnExport" class="btn-action">⬇ Exportar CSV</button><button id="btnImport" class="btn-action">⬆ Importar CSV</button><input type="file" id="fileImport" accept=".csv" style="display: none;"></div>
                     </div>
                 </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Ticker</th>
-                            <th>Tipo</th>
-                            <th>Cant.</th>
-                            <th>Precio</th>
-                            <th>Comisión</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyResults"></tbody>
-                </table>
+                <table><thead><tr><th>Fecha</th><th>Ticker</th><th>Tipo</th><th>Cant.</th><th>Precio</th><th>Comisión</th><th>Acciones</th></tr></thead><tbody id="historyResults"></tbody></table>
             </div>
         </div>
 
         <div id="marketView" class="view-section">
-            <div class="search-container">
-                <input type="search" id="searchInput" placeholder="Buscar ticker..." autocomplete="off">
+            <div class="search-container" style="margin-bottom: 20px;">
+                <div class="input-wrapper">
+                    <input type="search" id="searchInput" class="filter-input" placeholder="Buscar ticker..." autocomplete="off" style="width: 100%;">
+                    <span class="clear-search-btn" title="Borrar">✕</span>
+                </div>
             </div>
-            <div class="categories">
-                <button class="category active" data-category="all">Todos</button>
-                <button class="category" data-category="acciones">Acciones</button>
-                <button class="category" data-category="cedears">Cedears</button>
-                <button class="category" data-category="letras">Letras</button>
-                <button class="category" data-category="bonos">Bonos</button>
-            </div>
+            <div class="categories"><button class="category active" data-category="all">Todos</button><button class="category" data-category="acciones">Acciones</button><button class="category" data-category="cedears">Cedears</button><button class="category" data-category="letras">Letras</button><button class="category" data-category="bonos">Bonos</button></div>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Ticker</th>
-                            <th>Precio</th>
-                            <th>Variación</th>
-                            <th>Volumen</th>
-                            <th>Bid</th>
-                            <th>Ask</th>
+                            <th class="sortable asc" data-sort="symbol">Ticker</th>
+                            <th class="sortable" data-sort="c">Precio</th>
+                            <th class="sortable" data-sort="pct_change">Variación</th>
+                            <th class="sortable" data-sort="v">Volumen</th>
+                            <th class="sortable" data-sort="px_bid">Bid</th>
+                            <th class="sortable" data-sort="px_ask">Ask</th>
                         </tr>
                     </thead>
                     <tbody id="results"></tbody>
@@ -448,43 +342,46 @@
 
         <div id="fciView" class="view-section">
             <div class="search-container" style="margin-bottom: 20px;">
-                <input type="search" id="searchFciInput" placeholder="Buscar ticker de fondo..." autocomplete="off">
+                <div class="input-wrapper">
+                    <input type="search" id="searchFciInput" class="filter-input" placeholder="Buscar ticker de fondo..." autocomplete="off" style="width: 100%;">
+                    <span class="clear-search-btn" title="Borrar">✕</span>
+                </div>
             </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nombre del Fondo</th>
-                            <th>Valor Cuotaparte ($)</th>
-                            <th>Categoría / Fecha de Cotización</th>
-                        </tr>
-                    </thead>
-                    <tbody id="fciResults">
-                        <tr><td colspan='3'>Cargando listado de FCI...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+            <div class="table-container"><table><thead><tr><th>Nombre del Fondo</th><th>Valor Cuotaparte ($)</th><th>Categoría / Fecha de Cotización</th></tr></thead><tbody id="fciResults"></tbody></table></div>
         </div>
 
         <div id="usaScannerView" class="view-section">
-            
             <div id="scannerListView">
-                <div class="scanner-controls">
-                    <div class="search-container" style="flex: 1; margin-bottom: 0; display:flex; gap:10px;">
-                        <input type="search" id="searchScannerInput" placeholder="Buscar activo por nombre o ticker..." autocomplete="off" style="flex:1;">
-                        <button id="btnToggleFilters" class="btn-action" title="Filtros Avanzados">⚙️ Filtros</button>
+                <div class="scanner-controls" style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
+                    <div class="input-wrapper" style="flex: 1; position: relative;">
+                        <input type="search" id="searchScannerInput" class="filter-input" placeholder="Buscar activo por nombre o ticker..." autocomplete="off" style="width: 100%; height: 48px; font-size: 16px; padding-left: 15px; padding-right: 40px; border-radius: 8px;">
+                        <span class="clear-search-btn" title="Borrar" style="right: 20px;">✕</span>
                     </div>
-                    <button id="btnRefreshScanner" class="btn-action" style="height: 48px; margin-right: 10px;" title="Actualiza datos fundamentales y técnicos">🔄 Refrescar Datos</button>
-                    <button id="toggleScannerViewBtn" class="btn-action" style="height: 48px;">Ver Técnico</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btnToggleFilters" class="btn-action" style="height: 48px; min-width: 150px;" title="Filtros Avanzados">⚙️ Filtros</button>
+                        <button id="btnRefreshScanner" class="btn-action" style="height: 48px; min-width: 150px;" title="Actualiza datos fundamentales y técnicos">🔄 Refrescar Datos</button>
+                        <button id="toggleScannerViewBtn" class="btn-action" style="height: 48px; min-width: 150px;">Ver Técnico</button>
+                    </div>
                 </div>
 
                 <div id="scannerFiltersPanel" style="display:none; background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                     <h4 style="margin: 0 0 10px 0; color: #00f7ff; font-size:14px;">Filtros Avanzados</h4>
                     <div style="display:flex; gap: 15px; flex-wrap: wrap; align-items:flex-end;">
                         <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">PER Máx:</label><input type="number" id="filterPeMax" style="width:80px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;"></div>
+                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">BPA (EPS) Mín:</label><input type="number" id="filterEpsMin" style="width:90px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;"></div>
+                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">Beta Máx:</label><input type="number" id="filterBetaMax" style="width:80px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;" step="0.1"></div>
                         <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">RSI Mín:</label><input type="number" id="filterRsiMin" style="width:80px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;"></div>
                         <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">RSI Máx:</label><input type="number" id="filterRsiMax" style="width:80px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;"></div>
-                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">Distancia SMA200 (Máx %):</label><input type="number" id="filterDistSmaMax" style="width:120px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;" placeholder="Ej: 15"></div>
+                        <div>
+                            <label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">MACD:</label>
+                            <select id="filterMacd" style="height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;">
+                                <option value="">Todos</option>
+                                <option value="pos">Positivo (> 0)</option>
+                                <option value="neg">Negativo (< 0)</option>
+                            </select>
+                        </div>
+                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">Dist. SMA200 (Máx %):</label><input type="number" id="filterDistSmaMax" style="width:140px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;" placeholder="Ej: 15"></div>
+                        <div><label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">Rend. 1 Año (Mín %):</label><input type="number" id="filterPerf1YMin" style="width:130px; height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;" placeholder="Ej: 20"></div>
                         <div>
                             <label style="display:block; font-size:12px; color:#9ca3af; margin-bottom:4px;">Tendencia (Cruce):</label>
                             <select id="filterTrend" style="height:35px; padding:5px; background:#0b0f1a; border:1px solid #374151; color:#fff; border-radius:4px;">
@@ -501,23 +398,20 @@
                 </div>
                 
                 <div id="scannerFundContainer" class="table-container">
-                    <h3 style="color: #00f7ff; margin-bottom: 20px;">Análisis Fundamental</h3>
+                    <h3 style="color: #00f7ff; margin-bottom: 20px;">Análisis Fundamental y Rendimiento</h3>
                     <table>
                         <thead>
                             <tr>
                                 <th style="width:40px; text-align:center;">Sel.</th>
-                                <th>Ticker</th>
-                                <th>Nombre</th>
-                                <th>Moneda</th>
-                                <th>Precio Actual</th>
-                                <th>Market Cap (USD)</th>
-                                <th>PER</th>
-                                <th>BPA (USD)</th>
-                                <th>Beta</th>
-                                <th>Rend. Beneficio (EPS/Precio)</th>
-                                <th>Vol. Prom.</th>
-                                <th>Mín 52s</th>
-                                <th>Máx 52s</th>
+                                <th class="sortable asc" data-sort="ticker">Ticker</th>
+                                <th class="sortable" data-sort="name">Nombre</th>
+                                <th class="sortable" data-sort="currency">Moneda</th>
+                                <th class="sortable" data-sort="price">Precio Actual</th>
+                                <th class="sortable" data-sort="mcap">Market Cap</th>
+                                <th class="sortable" data-sort="pe">PER</th>
+                                <th class="sortable" data-sort="eps">BPA (USD)</th>
+                                <th class="sortable" data-sort="earnYield">Earn. Yield</th>
+                                <th class="sortable" data-sort="distHigh">Drawdown</th>
                             </tr>
                         </thead>
                         <tbody id="scannerFundResults"></tbody>
@@ -530,17 +424,17 @@
                         <thead>
                             <tr>
                                 <th style="width:40px; text-align:center;">Sel.</th>
-                                <th>Ticker</th>
-                                <th>Precio Actual</th>
-                                <th>RSI 14</th>
-                                <th>MACD</th>
-                                <th>Stoch. %K</th>
-                                <th>SMA 20</th>
-                                <th>SMA 50</th>
-                                <th>SMA 200</th>
-                                <th>Boll. Sup.</th>
-                                <th>Boll. Inf.</th>
-                                <th>Tendencia</th>
+                                <th class="sortable asc" data-sort="ticker">Ticker</th>
+                                <th class="sortable" data-sort="price">Precio Actual</th>
+                                <th class="sortable" data-sort="rsi">RSI 14</th>
+                                <th class="sortable" data-sort="macd">MACD</th>
+                                <th class="sortable" data-sort="stochK">Stoch. %K</th>
+                                <th class="sortable" data-sort="sma20">SMA 20</th>
+                                <th class="sortable" data-sort="sma50">SMA 50</th>
+                                <th class="sortable" data-sort="sma200">SMA 200</th>
+                                <th class="sortable" data-sort="bollUpper">Boll. Sup.</th>
+                                <th class="sortable" data-sort="bollLower">Boll. Inf.</th>
+                                <th class="sortable" data-sort="crossStatus">Tendencia</th>
                             </tr>
                         </thead>
                         <tbody id="scannerTechResults"></tbody>
@@ -548,13 +442,12 @@
                 </div>
             </div>
 
-          <div id="floatingComparePanel" class="floating-compare-panel" style="display:none;">
+            <div id="floatingComparePanel" class="floating-compare-panel" style="display:none;">
                 <div class="compare-header">
                     <span style="font-weight: bold; color: #00f7ff;">⚖️ Comparar (<span id="compareCount">0</span>/3)</span>
                     <button id="btnClearCompare" class="btn-clear-all" title="Borrar todos">Borrar Todos</button>
                 </div>
-                <div id="compareTagsContainer" class="compare-tags">
-                    </div>
+                <div id="compareTagsContainer" class="compare-tags"></div>
                 <button id="btnGoToCompare" class="btn-submit" style="width: 100%; margin-top: 10px; border-radius: 8px; padding: 10px;">Ir al Comparador ➡️</button>
             </div>
 
@@ -570,15 +463,25 @@
                 </div>
                 <div class="table-container" style="padding: 0; overflow: hidden; border: 1px solid #1f2937;">
                     <div style="overflow-x: auto; overflow-y: auto; max-height: 70vh; width: 100%;">
-                        <table id="compareTable" style="min-width: 800px; margin: 0; border-collapse: collapse; width: 100%;">
-                            </table>
+                        <table id="compareTable" style="min-width: 800px; margin: 0; border-collapse: collapse; width: 100%;"></table>
                     </div>
                 </div>
             </div>
-            
         </div>
-
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.input-wrapper').forEach(wrapper => {
+                const input = wrapper.querySelector('input');
+                const clearBtn = wrapper.querySelector('.clear-search-btn');
+                if(input && clearBtn) {
+                    input.addEventListener('input', () => { clearBtn.style.display = input.value.length > 0 ? 'block' : 'none'; });
+                    clearBtn.addEventListener('click', () => { input.value = ''; clearBtn.style.display = 'none'; input.dispatchEvent(new Event('input')); });
+                }
+            });
+        });
+    </script>
     <script type="module" src="./app.js"></script>
     <script type="module" src="./fci.js"></script>
     <script type="module" src="./scanner.js"></script>
