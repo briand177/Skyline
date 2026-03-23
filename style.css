@@ -25,7 +25,7 @@ body { background: #0b0f1a; color: white; display: flex; justify-content: center
 input:checked + .slider { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
 input:checked + .slider:before { transform: translateX(24px); }
 
-/* --- MODO PRIVACIDAD (Se incluye soporte para los gráficos canvas) --- */
+/* --- MODO PRIVACIDAD --- */
 .btn-privacy { background: none; border: none; font-size: 24px; cursor: pointer; transition: 0.3s; }
 .btn-privacy:hover { transform: scale(1.1); }
 .privacy-mode .obfuscated, .privacy-mode canvas { filter: blur(6px); opacity: 0.5; pointer-events: none; user-select: none; }
@@ -59,7 +59,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 .complex-card .highlight-actual { font-weight: bold; color: #fff; font-size: 16px; }
 .spacer-row { margin-bottom: 5px; }
 
-/* --- TABLAS --- */
+/* --- TABLAS BÁSICAS --- */
 .table-container { background: #111827; padding: 25px; border-radius: 12px; box-shadow: 0 0 20px rgba(0,0,0,0.5); margin-bottom: 30px; border: 1px solid #1f2937; overflow-x: auto; }
 .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
 .table-header h3 { color: #fff; font-size: 20px; }
@@ -75,6 +75,29 @@ th.sortable:hover { color: #00f7ff; background: rgba(0, 247, 255, 0.05); }
 th.sortable::after { content: '↕'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #4b5563; }
 th.sortable.asc::after { content: '▲'; color: #00f7ff; }
 th.sortable.desc::after { content: '▼'; color: #00f7ff; }
+
+/* --- TABLAS SCANNER (CABECERAS FIJAS Y SOLUCIÓN DE DESBORDE) --- */
+#scannerFundContainer, #scannerTechContainer {
+    max-height: 80vh;
+    overflow-y: auto;
+    padding-top: 0; /* Anula el hueco transparente de 25px */
+}
+#scannerFundContainer h3, #scannerTechContainer h3 {
+    margin-top: 0;
+    padding-top: 25px; /* Compensa visualmente el espacio borrado del contenedor */
+    background-color: #111827; 
+    position: relative;
+    z-index: 22; /* Hace que el título cubra todo antes de desaparecer */
+}
+#scannerFundContainer th, #scannerTechContainer th {
+    position: sticky;
+    top: 0; /* Se pega al milímetro con el techo del contenedor */
+    background-color: #111827;
+    z-index: 20;
+    box-shadow: 0 2px 0 0 #1f2937; 
+}
+#scannerFundContainer table, #scannerTechContainer table { white-space: nowrap; }
+#scannerFundContainer th, #scannerTechContainer th, #scannerFundContainer td, #scannerTechContainer td { padding: 12px 6px; font-size: 13px; }
 
 /* --- CATEGORÍAS MERCADO --- */
 .categories { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -245,6 +268,3 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 .clear-search-btn { position: absolute; right: 15px; color: #9ca3af; cursor: pointer; font-weight: bold; font-size: 18px; display: none; transition: 0.2s; user-select: none; z-index: 10; }
-
-#scannerFundContainer table, #scannerTechContainer table { white-space: nowrap; }
-#scannerFundContainer th, #scannerTechContainer th, #scannerFundContainer td, #scannerTechContainer td { padding: 12px 6px; font-size: 13px; }
