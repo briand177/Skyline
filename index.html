@@ -404,14 +404,16 @@
                             <tr>
                                 <th style="width:40px; text-align:center;">Sel.</th>
                                 <th class="sortable asc" data-sort="ticker">Ticker</th>
-                                <th class="sortable" data-sort="name">Nombre</th>
+                                <th class="sortable" data-sort="name">Nombre / Sector</th>
                                 <th class="sortable" data-sort="currency">Moneda</th>
                                 <th class="sortable" data-sort="price">Precio Actual</th>
-                                <th class="sortable" data-sort="mcap">Market Cap</th>
-                                <th class="sortable" data-sort="pe">PER</th>
-                                <th class="sortable" data-sort="eps">BPA (USD)</th>
-                                <th class="sortable" data-sort="earnYield">Earn. Yield</th>
-                                <th class="sortable" data-sort="distHigh">Drawdown</th>
+                                <th class="sortable" data-sort="pe">PER <div class="tooltip">?<div class="tooltiptext">Años para recuperar inversión.<br><br><b style="color:#00ff00">Comprar:</b> &lt; 15<br><b style="color:#ff0044">Vender:</b> &gt; 25</div></div></th>
+                                <th class="sortable" data-sort="peg">PEG <div class="tooltip">?<div class="tooltiptext">PER ajustado por Crecimiento.<br><br><b style="color:#00ff00">Comprar:</b> &lt; 1<br><b style="color:#ff0044">Vender:</b> &gt; 2</div></div></th>
+                                <th class="sortable" data-sort="ps">P/S <div class="tooltip">?<div class="tooltiptext">Precio / Ventas.<br><br><b style="color:#00ff00">Comprar:</b> &lt; 2<br><b style="color:#ff0044">Vender:</b> &gt; 5</div></div></th>
+                                <th class="sortable" data-sort="pb">P/B <div class="tooltip">?<div class="tooltiptext">Precio / Patrimonio Neto.<br><br><b style="color:#00ff00">Barato:</b> &lt; 1.5<br><b style="color:#ff0044">Caro:</b> &gt; 3</div></div></th>
+                                <th class="sortable" data-sort="divYield">Div. Yield <div class="tooltip">?<div class="tooltiptext">Rendimiento de Dividendos.<br><br><b style="color:#00ff00">Fuerte:</b> &gt; 3%</div></div></th>
+                                <th class="sortable" data-sort="eps">BPA (EPS) <div class="tooltip">?<div class="tooltiptext">Beneficio por acción.<br><br><b style="color:#00ff00">Comprar:</b> &gt; 0<br><b style="color:#ff0044">Vender:</b> &lt; 0</div></div></th>
+                                <th class="sortable" data-sort="earnYield">Earn. Yield <div class="tooltip">?<div class="tooltiptext">Rentabilidad real anual.<br><br><b style="color:#00ff00">Comprar:</b> &gt; 5%<br><b style="color:#ff0044">Vender:</b> &lt; 3%</div></div></th>
                             </tr>
                         </thead>
                         <tbody id="scannerFundResults"></tbody>
@@ -425,16 +427,16 @@
                             <tr>
                                 <th style="width:40px; text-align:center;">Sel.</th>
                                 <th class="sortable asc" data-sort="ticker">Ticker</th>
+                                <th class="sortable" data-sort="name">Nombre / Sector</th>
+                                <th class="sortable" data-sort="currency">Moneda</th>
                                 <th class="sortable" data-sort="price">Precio Actual</th>
-                                <th class="sortable" data-sort="rsi">RSI 14</th>
-                                <th class="sortable" data-sort="macd">MACD</th>
-                                <th class="sortable" data-sort="stochK">Stoch. %K</th>
-                                <th class="sortable" data-sort="sma20">SMA 20</th>
-                                <th class="sortable" data-sort="sma50">SMA 50</th>
-                                <th class="sortable" data-sort="sma200">SMA 200</th>
-                                <th class="sortable" data-sort="bollUpper">Boll. Sup.</th>
-                                <th class="sortable" data-sort="bollLower">Boll. Inf.</th>
-                                <th class="sortable" data-sort="crossStatus">Tendencia</th>
+                                <th class="sortable" data-sort="rsi">RSI <div class="tooltip">?<div class="tooltiptext">Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> &lt; 35<br><b style="color:#ff0044">Vender:</b> &gt; 65</div></div></th>
+                                <th class="sortable" data-sort="atr">ATR <div class="tooltip">?<div class="tooltiptext">Volatilidad en moneda.<br>Define tu Stop Loss.</div></div></th>
+                                <th class="sortable" data-sort="avwap">AVWAP* <div class="tooltip">?<div class="tooltiptext">VWAP Sintético (Aprox).<br><br><b style="color:#00ff00">Alcista:</b> Precio &gt; AVWAP</div></div></th>
+                                <th class="sortable" data-sort="beta">Beta <div class="tooltip">?<div class="tooltiptext">Volatilidad vs mercado.<br><br><b style="color:#00ff00">Defensa:</b> &lt; 1.0<br><b style="color:#ff0044">Agresiva:</b> &gt; 1.2</div></div></th>
+                                <th class="sortable" data-sort="bollUpper">Boll Sup <div class="tooltip">?<div class="tooltiptext">Techo probabilístico.<br><br><b style="color:#ff0044">Vender:</b> Si toca el techo</div></div></th>
+                                <th class="sortable" data-sort="bollLower">Boll Inf <div class="tooltip">?<div class="tooltiptext">Piso probabilístico.<br><br><b style="color:#00ff00">Comprar:</b> Si toca el piso</div></div></th>
+                                <th class="sortable" data-sort="crossStatus">Tendencia <div class="tooltip">?<div class="tooltiptext">Cruce de Medias.<br><br><b style="color:#00ff00">Comprar:</b> Golden Cross<br><b style="color:#ff0044">Vender:</b> Death Cross</div></div></th>
                             </tr>
                         </thead>
                         <tbody id="scannerTechResults"></tbody>
