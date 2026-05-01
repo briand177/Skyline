@@ -38,6 +38,7 @@
             <button class="tab-btn" data-target="marketView">Mercado</button>
             <button class="tab-btn" data-target="fciView">FCI en Vivo</button>
             <button class="tab-btn" data-target="usaScannerView">Scanner</button>
+            <button class="tab-btn" data-target="cedearsView">Cedears</button>
         </div>
 
         <div id="globalView" class="view-section active">
@@ -470,6 +471,44 @@
                 </div>
             </div>
         </div>
+        <div id="cedearsView" class="view-section">
+            <div class="table-container">
+                <div class="table-header" style="justify-content: space-between;">
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <h3>Monitor de Arbitraje</h3>
+                        <div class="view-toggle">
+                            <button id="btnToggleTable" class="toggle-btn active">Tabla</button>
+                            <button id="btnToggleChart" class="toggle-btn">Gráfico</button>
+                        </div>
+                    </div>
+                    <div class="input-wrapper" style="width: 300px;">
+                        <input type="search" id="searchCedearInput" placeholder="Buscar ticker..." class="filter-input">
+                    </div>
+                </div>
+
+                <div id="cedearsTableWrapper" style="overflow-y: auto; max-height: 80vh;">
+                    <table style="white-space: nowrap;">
+                        <thead>
+                            <tr>
+                                <th class="sortable asc" data-sort="ticker">Ticker</th>
+                                <th class="sortable" data-sort="ratio">Ratio</th>
+                                <th class="sortable" data-sort="pARS">Precio ARS</th>
+                                <th class="sortable" data-sort="pMEP">Precio MEP (D)</th>
+                                <th class="sortable" data-sort="pCCL">Precio CCL (C)</th>
+                                <th class="sortable" data-sort="pUSA">Subyacente (USD)</th>
+                                <th class="sortable" data-sort="implMep">Dólar MEP</th>
+                                <th class="sortable" data-sort="implCcl">Dólar CCL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cedearsResults"></tbody>
+                    </table>
+                </div>
+
+                <div id="cedearsChartWrapper" style="display: none; height: 600px; padding: 20px;">
+                    <canvas id="cedearsScatterChart"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -487,5 +526,6 @@
     <script type="module" src="./app.js"></script>
     <script type="module" src="./fci.js"></script>
     <script type="module" src="./scanner.js"></script>
+    <script type="module" src="./cedears.js"></script>
 </body>
 </html>

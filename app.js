@@ -2,6 +2,7 @@ import { CONFIG } from "./config.js";
 import { initScanner } from "./scanner.js";
 import { drawHistoricalChart, historicalPricesCache } from "./history-engine.js"; 
 import { initFCI, renderFciPortfolio, renderFciHistory } from "./fci.js";
+import { initCedears } from "./cedears.js";
 
 const txModal = document.getElementById("txModal");
 const btnOpenTxModal = document.getElementById("btnOpenTxModal");
@@ -560,7 +561,17 @@ document.getElementById("searchGlobalPortfolio")?.addEventListener("input", () =
 document.getElementById("searchBursatilPortfolio")?.addEventListener("input", renderPortfolio);
 document.getElementById("searchBursatilHistory")?.addEventListener("input", renderHistory);
 
-document.querySelectorAll(".tab-btn").forEach(btn => { btn.addEventListener("click", () => { document.querySelectorAll(".tab-btn, .view-section").forEach(el => el.classList.remove("active")); btn.classList.add("active"); document.getElementById(btn.dataset.target).classList.add("active"); if(btn.dataset.target === "usaScannerView") initScanner(); if(btn.dataset.target === "fciView") initFCI(); }); });
+document.querySelectorAll(".tab-btn").forEach(btn => { 
+    btn.addEventListener("click", () => { 
+        document.querySelectorAll(".tab-btn, .view-section").forEach(el => el.classList.remove("active")); 
+        btn.classList.add("active"); 
+        document.getElementById(btn.dataset.target).classList.add("active"); 
+        
+        if(btn.dataset.target === "usaScannerView") initScanner(); 
+        if(btn.dataset.target === "fciView") initFCI(); 
+        if(btn.dataset.target === "cedearsView") initCedears(); // LA LÍNEA NUEVA
+    }); 
+});
 
 document.getElementById("btnExport").addEventListener("click", () => {
     if (transactions.length === 0) { alert("No hay transacciones para exportar."); return; }

@@ -187,6 +187,10 @@ export async function initScanner(forceRefresh = false) {
                 for (let i = 1; i < argyArr.length; i++) {
                     let row = argyArr[i]; let ticker = getVal(headers, row, ['ticker', 'symbol']);
                     if (!ticker) continue; ticker = ticker.toUpperCase();
+                    
+                    // --- EL FILTRO MAGICO: Ignoramos los D y C para no ensuciar el scanner ---
+                    if (ticker.length > 2 && (ticker.endsWith('D') || ticker.endsWith('C')) && !ticker.includes('MERV')) continue;
+
                     argyData[ticker] = {
                         company: getVal(headers, row, ['nombre', 'name']), sector: getVal(headers, row, ['sector']), price: parseSuperNum(getVal(headers, row, ['precio', 'price'])),
                         pe: parseSuperNum(getVal(headers, row, ['pe'])), ps: parseSuperNum(getVal(headers, row, ['ps'])), pb: parseSuperNum(getVal(headers, row, ['pb'])), eps: parseSuperNum(getVal(headers, row, ['eps'])),
@@ -200,7 +204,6 @@ export async function initScanner(forceRefresh = false) {
                 }
             }
         }
-
         const finalTickers = [...new Set([...Object.keys(fvzData), ...Object.keys(argyData)])];
         let rawMapped = finalTickers.map(ticker => {
             let isArgy = !fvzData[ticker] && argyData[ticker];

@@ -268,3 +268,32 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 .clear-search-btn { position: absolute; right: 15px; color: #9ca3af; cursor: pointer; font-weight: bold; font-size: 18px; display: none; transition: 0.2s; user-select: none; z-index: 10; }
+
+/* --- VIEW TOGGLE ESTILO PILL --- */
+.view-toggle {
+    display: flex;
+    background: #0b0f1a;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 3px;
+}
+.toggle-btn {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: 6px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+.toggle-btn.active {
+    background: #00f7ff;
+    color: #0b0f1a;
+}
+.toggle-btn:hover:not(.active) {
+    color: #fff;
+    background: rgba(255,255,255,0.05);
+}
+
