@@ -27,12 +27,19 @@ const menuOverlay = document.createElement("div");
 menuOverlay.className = "menu-overlay";
 document.body.appendChild(menuOverlay);
 
-if (mobileMenuBtn) {
-    mobileMenuBtn.addEventListener("click", () => {
-        navTabs.classList.toggle("open");
-        menuOverlay.classList.toggle("open");
-    });
+function toggleMenu() {
+    const isOpen = navTabs.classList.toggle("open");
+    menuOverlay.classList.toggle("open");
+    
+    if (isOpen) {
+        document.body.classList.add("no-scroll");
+    } else {
+        document.body.classList.remove("no-scroll");
+    }
 }
+
+if (mobileMenuBtn) { mobileMenuBtn.addEventListener("click", toggleMenu); }
+menuOverlay.addEventListener("click", toggleMenu);
 menuOverlay.addEventListener("click", () => {
     navTabs.classList.remove("open");
     menuOverlay.classList.remove("open");
@@ -618,6 +625,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
         if (window.innerWidth <= 768) {
             navTabs.classList.remove("open");
             menuOverlay.classList.remove("open");
+            document.body.classList.remove("no-scroll");
         }
     }); 
 });

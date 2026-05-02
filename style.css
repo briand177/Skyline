@@ -341,7 +341,16 @@ input[type="search"]::-webkit-search-results-decoration {
         overflow-y: auto; padding-bottom: 20px;
     }
     .nav-tabs.open { left: 0; }
-    .tab-btn { width: 100%; border-radius: 0; padding: 14px 15px; text-align: left; border-bottom: 1px solid #1f2937; font-size: 13px; }
+    .tab-btn { 
+        flex: none !important; /* <--- ESTA ES LA MAGIA QUE FALTABA */
+        width: 100% !important; 
+        border-radius: 0 !important; 
+        padding: 15px 20px !important; /* Le devolvemos un relleno cómodo para el dedo */
+        text-align: left !important; 
+        border-bottom: 1px solid #1f2937 !important; 
+        font-size: 13px !important; 
+        height: auto !important; 
+    }
 
     .time-filters { 
         display: flex; flex-wrap: nowrap !important; overflow-x: auto; 
@@ -392,30 +401,54 @@ input[type="search"]::-webkit-search-results-decoration {
         border-collapse: separate !important;
         border-spacing: 0;
     }
-
-    /* Evitamos que los números se rompan en varios renglones */
     .table-container table th,
     .table-container table td {
         white-space: nowrap !important;
     }
 
-    /* MAGIA: Fija la primera columna a la izquierda y le permite dividirse en renglones */
+    /* Regla General (Carteras): Fija la columna 1 (Ticker) */
     .table-container table th:first-child,
     .table-container table td:first-child {
         position: sticky !important;
         left: 0 !important;
         background-color: #111827 !important;
         z-index: 10 !important;
-        box-shadow: 4px 0 8px rgba(0,0,0,0.3); /* Sombra elegante */
+        box-shadow: 4px 0 8px rgba(0,0,0,0.3);
         border-right: 1px solid #374151;
-        
-        white-space: normal !important; /* El permiso para hacer renglones */
+        white-space: normal !important;
         min-width: 100px;
-        max-width: 130px; /* Asegura que mantenga la forma finita de tu foto */
+        max-width: 120px;
     }
 
-    /* El título "Ticker" o "Activo" tiene que estar encima de todo */
-    .table-container table thead th:first-child {
+    /* EXCEPCIÓN PARA EL SCANNER: Fija el Checkbox y el Ticker */
+    #usaScannerView .table-container table th:first-child,
+    #usaScannerView .table-container table td:first-child {
+        min-width: 35px !important; 
+        width: 35px !important; 
+        box-shadow: none !important; 
+        border-right: none !important;
+    }
+    #usaScannerView .table-container table th:nth-child(2),
+    #usaScannerView .table-container table td:nth-child(2) {
+        position: sticky !important;
+        left: 35px !important; 
+        background-color: #111827 !important;
+        z-index: 10 !important;
+        box-shadow: 4px 0 8px rgba(0,0,0,0.3) !important; 
+        border-right: 1px solid #374151 !important;
+        white-space: normal !important;
+        min-width: 90px;
+        max-width: 110px;
+    }
+
+    /* Ajuste de superposición para los títulos de la cabecera */
+    .table-container table thead th:first-child,
+    #usaScannerView .table-container table thead th:nth-child(2) {
         z-index: 20 !important;
     }
+} /* <--- FIN DEL BLOQUE DE CELULAR */
+
+/* Clase global para bloquear el fondo cuando se abre el menú */
+body.no-scroll {
+    overflow: hidden !important;
 }
