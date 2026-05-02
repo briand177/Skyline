@@ -153,7 +153,7 @@ export function renderFciPortfolio() {
 
         const invested = isUSD ? h.invUSD : h.invARS; const currentVal = isUSD ? currentValUSD : currentValARS;
         const pnl = currentVal - invested; const pnlP = invested > 0 ? (pnl / invested) * 100 : 0;
-        
+
         fciHoldingsArr.push({
             ticker: t, tag: "FCI", qtyStr: formatMonto(h.qty), realQty: (h.qty / 1000), 
             nativeSym: h.isUSD ? "u$s " : "$ ", nativePPC: h.invNative / (h.qty / 1000), nativePrice: apiPriceUnit,

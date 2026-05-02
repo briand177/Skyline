@@ -297,3 +297,125 @@ input[type="search"]::-webkit-search-results-decoration {
     background: rgba(255,255,255,0.05);
 }
 
+
+
+/* --- BOTON MENU Y OVERLAY MOVIL --- */
+.mobile-menu-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    color: #00f7ff;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.menu-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 999;
+}
+.menu-overlay.open { display: block; }
+
+
+
+
+/* ========================================================= */
+/* --- MODO CELULAR (RESPONSIVE DESIGN) ---                  */
+/* ========================================================= */
+@media screen and (max-width: 768px) {
+    body { padding: 10px; padding-bottom: 80px; }
+    
+    .mobile-menu-btn { display: block; }
+    .header-top { flex-direction: column; gap: 15px; align-items: stretch; }
+    .header-top > div { justify-content: space-between; width: 100%; }
+    .title { font-size: 32px; }
+    
+    .nav-tabs {
+        position: fixed; top: 0; left: -300px; width: 240px; height: 100vh;
+        background: #0b0f1a; flex-direction: column; justify-content: flex-start;
+        padding-top: 60px; z-index: 1000; transition: 0.3s ease-in-out;
+        border-right: 1px solid #374151; gap: 0; box-shadow: 5px 0 15px rgba(0,0,0,0.8);
+        overflow-y: auto; padding-bottom: 20px;
+    }
+    .nav-tabs.open { left: 0; }
+    .tab-btn { width: 100%; border-radius: 0; padding: 14px 15px; text-align: left; border-bottom: 1px solid #1f2937; font-size: 13px; }
+
+    .time-filters { 
+        display: flex; flex-wrap: nowrap !important; overflow-x: auto; 
+        width: 100%; padding-bottom: 10px; justify-content: flex-start !important;
+    }
+    .time-filters::-webkit-scrollbar { height: 4px; }
+    .time-filters::-webkit-scrollbar-thumb { background: #00f7ff; border-radius: 4px; }
+    .time-btn { flex: 0 0 auto; padding: 6px 12px; font-size: 13px; }
+    
+    .scanner-controls { flex-direction: column !important; gap: 12px !important; }
+    .scanner-controls > div:last-child { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8px; order: 1; }
+    .scanner-controls .btn-action { min-width: 0 !important; height: 40px !important; font-size: 11px !important; padding: 0 !important; }
+    .scanner-controls .input-wrapper { order: 2; width: 100% !important; }
+    .scanner-controls .input-wrapper input { height: 45px !important; }
+
+    #scannerDetailContent > div[style*="display: grid"] { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+    #scannerDetailContent > div[style*="display: flex"] { flex-direction: column !important; gap: 15px !important; }
+    #scannerDetailContent > div[style*="display: flex"] > div { width: 100% !important; box-sizing: border-box !important; margin: 0 !important; }
+    #scannerDetailContent .tradingview-widget-container iframe { min-height: 480px !important; }
+
+    .chart-controls { flex-direction: row !important; flex-wrap: wrap; align-items: center !important; gap: 5px !important; width: 100%; margin-bottom: 10px; }
+    .custom-checkbox { flex: 1 1 48%; justify-content: center; font-size: 11px; }
+    .checkmark { padding: 6px 10px !important; width: 100%; text-align: center; box-sizing: border-box; }
+    .chart-select { width: 100% !important; max-width: 100%; box-sizing: border-box; margin-top: 5px; }
+    
+    .charts-grid { display: flex; flex-direction: column; gap: 30px; padding-bottom: 40px; }
+    .chart-box { padding: 10px 5px; width: 100%; box-sizing: border-box; overflow: hidden; }
+    .chart-wrapper { min-height: 380px; position: relative; width: 100%; } 
+    .chart-box.full-width { display: flex; flex-direction: column; min-height: 450px; } 
+    .chart-box.full-width canvas { flex-grow: 1; min-height: 250px; }
+    #globalBarChart, #barChart { margin-left: -10px; }
+
+    .dashboard-cards { grid-template-columns: 1fr; gap: 15px; }
+    .table-header { flex-direction: column; align-items: stretch; gap: 15px; }
+    .table-header > div { width: 100% !important; justify-content: center; flex-direction: column; gap: 10px; }
+    .input-wrapper { width: 100% !important; }
+
+    /* --- 5. AISLAR EL SCROLL Y FIJAR COLUMNA --- */
+    .table-container { 
+        width: 100%; 
+        overflow: hidden !important; 
+    }
+    .table-container table {
+        display: block; 
+        width: 100%; 
+        overflow-x: auto !important; 
+        -webkit-overflow-scrolling: touch; 
+        border-collapse: separate !important;
+        border-spacing: 0;
+    }
+
+    /* Evitamos que los números se rompan en varios renglones */
+    .table-container table th,
+    .table-container table td {
+        white-space: nowrap !important;
+    }
+
+    /* MAGIA: Fija la primera columna a la izquierda y le permite dividirse en renglones */
+    .table-container table th:first-child,
+    .table-container table td:first-child {
+        position: sticky !important;
+        left: 0 !important;
+        background-color: #111827 !important;
+        z-index: 10 !important;
+        box-shadow: 4px 0 8px rgba(0,0,0,0.3); /* Sombra elegante */
+        border-right: 1px solid #374151;
+        
+        white-space: normal !important; /* El permiso para hacer renglones */
+        min-width: 100px;
+        max-width: 130px; /* Asegura que mantenga la forma finita de tu foto */
+    }
+
+    /* El título "Ticker" o "Activo" tiene que estar encima de todo */
+    .table-container table thead th:first-child {
+        z-index: 20 !important;
+    }
+}

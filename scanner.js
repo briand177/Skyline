@@ -31,14 +31,11 @@ let scannerSort = { col: 'ticker', asc: true };
 const CACHE_KEY = 'skyline_sheets_scanner_data';
 const CACHE_EXPIRATION = 12 * 60 * 60 * 1000; 
 
-let currentFilters = { peMax: null, epsMin: null, betaMax: null, rsiMin: null, rsiMax: null, macd: "", distSmaMax: null, perf1YMin: null, trend: "" };
-
 function fNum(val) {
     if (val === null || val === undefined || val === '-') return '-';
     let n = parseFloat(val); return isNaN(n) ? val : parseFloat(n.toFixed(2));
 }
 
-// CONVERSOR DINÁMICO
 function cvt(val, nativeCurrency) {
     if (val === null || val === undefined || val === '-') return val;
     if (nativeCurrency === 'ARS' && isUSD && currentMepRate > 0) return val / currentMepRate;
@@ -188,7 +185,6 @@ export async function initScanner(forceRefresh = false) {
                     let row = argyArr[i]; let ticker = getVal(headers, row, ['ticker', 'symbol']);
                     if (!ticker) continue; ticker = ticker.toUpperCase();
                     
-                    // --- EL FILTRO MAGICO: Ignoramos los D y C para no ensuciar el scanner ---
                     if (ticker.length > 2 && (ticker.endsWith('D') || ticker.endsWith('C')) && !ticker.includes('MERV')) continue;
 
                     argyData[ticker] = {
@@ -480,8 +476,6 @@ function buildCompareView() {
         row += `</tr>`; return row;
     };
 
-    const ttStyle = `style="bottom: auto !important; top: 150% !important; z-index: 999999 !important;"`;
-
     let html = `<thead>${headers}</thead><tbody>`;
     html += createRow(`Sector`, "sector");
     html += createRow(`Moneda Origen`, "currency");
@@ -536,32 +530,23 @@ function showAssetDetail(ticker) {
     const dMcap = cvt(item.mcap, item.currency);
     const dValTraded = cvt(item.valTraded, item.currency);
 
-    // --- MOTOR QUANT EXACTO (Matemática Pura) ---
-    
-    // 1. SWING TRADING (MOMENTUM Y RUPTURAS)
+    // --- MOTOR QUANT EXACTO ---
     let score1M = 0;
-    if (item.rsi !== null) { 
-        if (item.rsi > 30 && item.rsi < 50) score1M += 1; // Saliendo de sobreventa
-        if (item.rsi > 70) score1M -= 2; // Riesgo de corrección inmediata
-    }
+    if (item.rsi !== null) { if (item.rsi > 30 && item.rsi < 50) score1M += 1; if (item.rsi > 70) score1M -= 2; }
     if (item.macd !== null) { if (item.macd > 0) score1M += 1; else score1M -= 1; }
     if (item.price !== null && item.sma20 !== null) { if (item.price > item.sma20) score1M += 1; else score1M -= 1; }
-    if (item.relVolume !== null && item.relVolume > 1.5) score1M += 1; // Fuerte inyección institucional
-    if (item.shortFloat !== null && item.shortFloat > 15) score1M += 1; // Squeeze potencial
+    if (item.relVolume !== null && item.relVolume > 1.5) score1M += 1; 
+    if (item.shortFloat !== null && item.shortFloat > 15) score1M += 1; 
 
     let signal1M = "NEUTRAL"; let color1M = "#f59e0b"; 
     if (score1M >= 3) { signal1M = "COMPRAR"; color1M = "#00ff00"; } 
     else if (score1M <= -1) { signal1M = "VENDER"; color1M = "#ff0044"; }
 
-    // 2. TREND FOLLOWING (CRECIMIENTO SOSTENIDO)
     let score6M = 0;
     if (item.crossStatus.includes('Golden')) score6M += 2; else score6M -= 2;
-    if (item.distSma200 !== null) { 
-        if (item.distSma200 > 0 && item.distSma200 < 20) score6M += 1; // Suba controlada
-        else if (item.distSma200 > 35) score6M -= 2; // Fase de euforia
-    }
+    if (item.distSma200 !== null) { if (item.distSma200 > 0 && item.distSma200 < 20) score6M += 1; else if (item.distSma200 > 35) score6M -= 2; }
     if (item.peg !== null) { if (item.peg > 0 && item.peg < 1.5) score6M += 1; else if (item.peg > 2.5) score6M -= 1; }
-    if (item.epsQQ !== null) { if (item.epsQQ > 15) score6M += 1; else if (item.epsQQ < 0) score6M -= 1; } // Crecimiento real requerido
+    if (item.epsQQ !== null) { if (item.epsQQ > 15) score6M += 1; else if (item.epsQQ < 0) score6M -= 1; } 
     if (item.salesQQ !== null) { if (item.salesQQ > 15) score6M += 1; else if (item.salesQQ < 0) score6M -= 1; }
     if (item.recom !== null) { if (item.recom <= 2.5) score6M += 1; else if (item.recom >= 3.5) score6M -= 1; }
 
@@ -569,7 +554,6 @@ function showAssetDetail(ticker) {
     if (score6M >= 4) { signal6M = "COMPRAR"; color6M = "#00ff00"; } 
     else if (score6M <= -1) { signal6M = "VENDER"; color6M = "#ff0044"; }
 
-    // 3. DEEP VALUE (WARREN BUFFETT)
     let score3Y = 0;
     if (item.pe !== null) { if (item.pe > 0 && item.pe < 15) score3Y += 1; else if (item.pe > 25 || item.pe < 0) score3Y -= 1; }
     if (item.pb !== null) { if (item.pb > 0 && item.pb < 1.5) score3Y += 1; else if (item.pb > 3) score3Y -= 1; }
@@ -587,25 +571,22 @@ function showAssetDetail(ticker) {
     let trendColor = item.crossStatus.includes('Golden') ? 'positive' : (item.crossStatus.includes('Death') ? 'negative' : 'warning');
 
     scannerDetailContent.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 15px 25px; border-radius: 12px; border: 1px solid #1f2937;">
-            <div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 15px 25px; border-radius: 12px; border: 1px solid #1f2937; gap: 15px;">
+            <div style="width: 100%;">
                 <h2 style="color: #00f7ff; margin:0; font-size: 28px;">${item.ticker} <span style="font-size: 18px; color: #9ca3af;">(${sym} ${priceDisp})</span></h2>
                 <span style="color:#9ca3af; font-size: 14px;">${item.name} | ${item.sector} | Moneda Origen: <span style="color:${colorMoneda}; font-weight:bold;">${item.currency}</span></span>
             </div>
             
-            <div style="display: flex; gap: 15px;">
-                <div style="background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 110px; position: relative;">
-                    <div class="tooltip" style="position:absolute; top:5px; right:5px; font-size:10px;">?<div class="tooltiptext" style="width:200px; left:-180px;">Prioriza rupturas de volatilidad, cruces en MACD e inyección de volumen inusual.</div></div>
+            <div style="display: flex; gap: 15px; width: 100%; flex-wrap: wrap;">
+                <div style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 100px; position: relative;">
                     <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">1 Mes (Swing)</div>
                     <div style="font-weight: bold; color: ${color1M}; font-size: 16px; letter-spacing: 1px;">${signal1M}</div>
                 </div>
-                <div style="background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 110px; position: relative;">
-                    <div class="tooltip" style="position:absolute; top:5px; right:5px; font-size:10px;">?<div class="tooltiptext" style="width:200px; left:-180px;">Exige confirmación de tendencia macro (Golden Cross) sustentada en crecimiento real de EPS.</div></div>
+                <div style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 100px; position: relative;">
                     <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">6 Meses (Trend)</div>
                     <div style="font-weight: bold; color: ${color6M}; font-size: 16px; letter-spacing: 1px;">${signal6M}</div>
                 </div>
-                <div style="background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 110px; position: relative;">
-                    <div class="tooltip" style="position:absolute; top:5px; right:5px; font-size:10px;">?<div class="tooltiptext" style="width:200px; left:-180px;">Test de estrés. Exige un precio de ganga (P/FCF bajo) pero con alta solvencia y liquidez.</div></div>
+                <div style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid #374151; padding: 10px 15px; border-radius: 8px; text-align: center; min-width: 100px; position: relative;">
                     <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">2-3 Años (Value)</div>
                     <div style="font-weight: bold; color: ${color3Y}; font-size: 16px; letter-spacing: 1px;">${signal3Y}</div>
                 </div>
@@ -617,67 +598,67 @@ function showAssetDetail(ticker) {
             <div class="card complex-card">
                 <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Fundamentales de Valoración</h3>
                 <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px;">
-                    <div class="kpi-box"><span class="label">Market Cap <div class="tooltip">?<div class="tooltiptext">Tamaño de empresa en bolsa.<br><br><b style="color:#00ff00">Comprar (Sólida):</b> > 10B<br><b style="color:#ff0044">Vender (Riesgo):</b> < 2B</div></div></span><span class="val" style="color:#00f7ff;">${dMcap !== null ? gSym + ' ' + fmtBigNum(dMcap) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Vol. Operado <div class="tooltip">?<div class="tooltiptext">Dinero operado diario. Indica liquidez.</div></div></span><span class="val" style="color:#00f7ff;">${dValTraded !== null ? gSym + ' ' + fmtBigNum(dValTraded) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">PER (P/E) <div class="tooltip">?<div class="tooltiptext">Años para recuperar inversión.<br><br><b style="color:#00ff00">Comprar:</b> < 15<br><b style="color:#ff0044">Vender:</b> > 25</div></div></span><span class="val ${getColor(item.pe, 'pe')}">${fNum(item.pe)}</span></div>
-                    <div class="kpi-box"><span class="label">PEG <div class="tooltip">?<div class="tooltiptext">PER ajustado por crecimiento.<br><br><b style="color:#00ff00">Comprar:</b> < 1.0<br><b style="color:#ff0044">Vender:</b> > 2.0</div></div></span><span class="val ${getColor(item.peg, 'peg')}">${fNum(item.peg)}</span></div>
-                    <div class="kpi-box"><span class="label">P/B (Book) <div class="tooltip">?<div class="tooltiptext">Precio / Patrimonio Neto.<br><br><b style="color:#00ff00">Barato:</b> < 1.5<br><b style="color:#ff0044">Caro:</b> > 3.0</div></div></span><span class="val ${getColor(item.pb, 'pb')}">${fNum(item.pb)}</span></div>
-                    <div class="kpi-box"><span class="label">P/S (Sales) <div class="tooltip">?<div class="tooltiptext">Precio / Ventas.<br><br><b style="color:#00ff00">Comprar:</b> < 2.0<br><b style="color:#ff0044">Vender:</b> > 5.0</div></div></span><span class="val ${getColor(item.ps, 'ps')}">${fNum(item.ps)}</span></div>
-                    <div class="kpi-box"><span class="label">P/C (Cash) <div class="tooltip">?<div class="tooltiptext">Precio / Flujo de caja libre.<br><br><b style="color:#00ff00">Comprar:</b> < 15<br><b style="color:#ff0044">Vender:</b> > 25</div></div></span><span class="val ${getColor(item.pc, 'pc')}">${fNum(item.pc)}</span></div>
-                    <div class="kpi-box"><span class="label">P/FCF <div class="tooltip">?<div class="tooltiptext">Precio / Flujo de caja libre puro.<br><br><b style="color:#00ff00">Comprar:</b> < 20<br><b style="color:#ff0044">Vender:</b> > 40</div></div></span><span class="val ${getColor(item.pfcf, 'pe')}">${fNum(item.pfcf)}</span></div>
-                    <div class="kpi-box"><span class="label">BPA (EPS) <div class="tooltip">?<div class="tooltiptext">Beneficio neto por acción.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div></span><span class="val ${getColor(item.eps, 'eps')}">${item.eps !== null ? sym + ' ' + fNum(item.eps) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Earn. Yield <div class="tooltip">?<div class="tooltiptext">Inversa del PER (Rentabilidad real).<br><br><b style="color:#00ff00">Comprar:</b> > 5%<br><b style="color:#ff0044">Vender:</b> < 3%</div></div></span><span class="val ${getColor(item.earnYield, 'ey')}">${item.earnYield !== null ? fNum(item.earnYield) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">ROE <div class="tooltip">?<div class="tooltiptext">Retorno sobre Patrimonio.<br><br><b style="color:#00ff00">Excelente:</b> > 15%<br><b style="color:#ff0044">Malo:</b> < 5%</div></div></span><span class="val ${getColor(item.roe, 'roe')}">${item.roe !== null ? fNum(item.roe) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Debt / Eq <div class="tooltip">?<div class="tooltiptext">Deuda sobre Patrimonio.<br><br><b style="color:#00ff00">Sano:</b> < 1.0<br><b style="color:#ff0044">Peligro:</b> > 2.0</div></div></span><span class="val ${getColor(item.debtEq, 'debt')}">${fNum(item.debtEq)}</span></div>
-                    <div class="kpi-box"><span class="label">Div. Nominal <div class="tooltip">?<div class="tooltiptext">Dividendo anual pagado por acción.</div></div></span><span class="val" style="color:#00ff00;">${item.divNominal !== null ? sym + ' ' + fNum(item.divNominal) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Div. Yield <div class="tooltip">?<div class="tooltiptext">Rendimiento por dividendos.<br><br><b style="color:#00ff00">Fuerte:</b> > 3%<br><b style="color:#ff0044">Débil:</b> 0%</div></div></span><span class="val ${getColor(item.divYield, 'divYield')}">${item.divYield !== null ? fNum(item.divYield) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Market Cap</span><span class="val" style="color:#00f7ff;">${dMcap !== null ? gSym + ' ' + fmtBigNum(dMcap) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Vol. Operado</span><span class="val" style="color:#00f7ff;">${dValTraded !== null ? gSym + ' ' + fmtBigNum(dValTraded) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">PER (P/E)</span><span class="val ${getColor(item.pe, 'pe')}">${fNum(item.pe)}</span></div>
+                    <div class="kpi-box"><span class="label">PEG</span><span class="val ${getColor(item.peg, 'peg')}">${fNum(item.peg)}</span></div>
+                    <div class="kpi-box"><span class="label">P/B (Book)</span><span class="val ${getColor(item.pb, 'pb')}">${fNum(item.pb)}</span></div>
+                    <div class="kpi-box"><span class="label">P/S (Sales)</span><span class="val ${getColor(item.ps, 'ps')}">${fNum(item.ps)}</span></div>
+                    <div class="kpi-box"><span class="label">P/C (Cash)</span><span class="val ${getColor(item.pc, 'pc')}">${fNum(item.pc)}</span></div>
+                    <div class="kpi-box"><span class="label">P/FCF</span><span class="val ${getColor(item.pfcf, 'pe')}">${fNum(item.pfcf)}</span></div>
+                    <div class="kpi-box"><span class="label">BPA (EPS)</span><span class="val ${getColor(item.eps, 'eps')}">${item.eps !== null ? sym + ' ' + fNum(item.eps) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Earn. Yield</span><span class="val ${getColor(item.earnYield, 'ey')}">${item.earnYield !== null ? fNum(item.earnYield) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">ROE</span><span class="val ${getColor(item.roe, 'roe')}">${item.roe !== null ? fNum(item.roe) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Debt / Eq</span><span class="val ${getColor(item.debtEq, 'debt')}">${fNum(item.debtEq)}</span></div>
+                    <div class="kpi-box"><span class="label">Div. Nominal</span><span class="val" style="color:#00ff00;">${item.divNominal !== null ? sym + ' ' + fNum(item.divNominal) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Div. Yield</span><span class="val ${getColor(item.divYield, 'divYield')}">${item.divYield !== null ? fNum(item.divYield) + '%' : '-'}</span></div>
                 </div>
             </div>
 
             <div class="card complex-card">
                 <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Crecimiento, Liquidez y Sentimiento</h3>
                 <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px;">
-                    <div class="kpi-box"><span class="label">EPS Q/Q <div class="tooltip">?<div class="tooltiptext">Crec. Ganancias vs Trimestre Anterior.<br><br><b style="color:#00ff00">Bueno:</b> > 10%<br><b style="color:#ff0044">Malo:</b> < 0%</div></div></span><span class="val ${getColor(item.epsQQ, 'change')}">${item.epsQQ !== null ? fNum(item.epsQQ) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Sales Q/Q <div class="tooltip">?<div class="tooltiptext">Crec. Ventas vs Trimestre Anterior.<br><br><b style="color:#00ff00">Bueno:</b> > 10%<br><b style="color:#ff0044">Malo:</b> < 0%</div></div></span><span class="val ${getColor(item.salesQQ, 'change')}">${item.salesQQ !== null ? fNum(item.salesQQ) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Current R. <div class="tooltip">?<div class="tooltiptext">Liquidez Corriente.<br><br><b style="color:#00ff00">Sano:</b> > 1.5<br><b style="color:#ff0044">Riesgo:</b> < 1.0</div></div></span><span class="val ${getColor(item.currR, 'liquidity')}">${fNum(item.currR)}</span></div>
-                    <div class="kpi-box"><span class="label">Quick R. <div class="tooltip">?<div class="tooltiptext">Liquidez Ácida (Sin inventarios).<br><br><b style="color:#00ff00">Sano:</b> > 1.0<br><b style="color:#ff0044">Riesgo:</b> < 0.8</div></div></span><span class="val ${getColor(item.quickR, 'liquidity')}">${fNum(item.quickR)}</span></div>
-                    <div class="kpi-box"><span class="label">ROA <div class="tooltip">?<div class="tooltiptext">Retorno sobre Activos.<br><br><b style="color:#00ff00">Sano:</b> > 8%</div></div></span><span class="val ${getColor(item.roa, 'change')}">${item.roa !== null ? fNum(item.roa) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Recom <div class="tooltip">?<div class="tooltiptext">Consenso Analistas (1=Fuerte Compra, 5=Venta).<br><br><b style="color:#00ff00">Comprar:</b> < 2.5<br><b style="color:#ff0044">Vender:</b> > 3.5</div></div></span><span class="val ${getColor(item.recom, 'recom')}">${fNum(item.recom)}</span></div>
-                    <div class="kpi-box"><span class="label">Target Gap <div class="tooltip">?<div class="tooltiptext">Distancia al precio objetivo de Wall Street.<br><br><b style="color:#00ff00">Alcista:</b> > +10%</div></div></span><span class="val ${getColor(item.targetGap, 'target')}">${item.targetGap !== null ? '+' + fNum(item.targetGap) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Short Float <div class="tooltip">?<div class="tooltiptext">Acciones vendidas en corto.<br><br><b style="color:#00ff00">Sano:</b> < 5%<br><b style="color:#ff0044">Riesgo/Squeeze:</b> > 15%</div></div></span><span class="val ${getColor(item.shortFloat, 'short')}">${item.shortFloat !== null ? fNum(item.shortFloat) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Insider Tr. <div class="tooltip">?<div class="tooltiptext">Compras de directivos en últimos 6M.<br><br><b style="color:#00ff00">Compran:</b> > 0%<br><b style="color:#ff0044">Venden:</b> < -5%</div></div></span><span class="val ${getColor(item.insiderTrans, 'insider')}">${item.insiderTrans !== null ? fNum(item.insiderTrans) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Beta (Riesgo) <div class="tooltip">?<div class="tooltiptext">Volatilidad frente al mercado.<br><br><b style="color:#00ff00">Defensa:</b> < 1.0<br><b style="color:#ff0044">Agresiva:</b> > 1.2</div></div></span><span class="val ${getColor(item.beta, 'beta')}">${fNum(item.beta)}</span></div>
+                    <div class="kpi-box"><span class="label">EPS Q/Q</span><span class="val ${getColor(item.epsQQ, 'change')}">${item.epsQQ !== null ? fNum(item.epsQQ) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Sales Q/Q</span><span class="val ${getColor(item.salesQQ, 'change')}">${item.salesQQ !== null ? fNum(item.salesQQ) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Current R.</span><span class="val ${getColor(item.currR, 'liquidity')}">${fNum(item.currR)}</span></div>
+                    <div class="kpi-box"><span class="label">Quick R.</span><span class="val ${getColor(item.quickR, 'liquidity')}">${fNum(item.quickR)}</span></div>
+                    <div class="kpi-box"><span class="label">ROA</span><span class="val ${getColor(item.roa, 'change')}">${item.roa !== null ? fNum(item.roa) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Recom</span><span class="val ${getColor(item.recom, 'recom')}">${fNum(item.recom)}</span></div>
+                    <div class="kpi-box"><span class="label">Target Gap</span><span class="val ${getColor(item.targetGap, 'target')}">${item.targetGap !== null ? '+' + fNum(item.targetGap) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Short Float</span><span class="val ${getColor(item.shortFloat, 'short')}">${item.shortFloat !== null ? fNum(item.shortFloat) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Insider Tr.</span><span class="val ${getColor(item.insiderTrans, 'insider')}">${item.insiderTrans !== null ? fNum(item.insiderTrans) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Beta</span><span class="val ${getColor(item.beta, 'beta')}">${fNum(item.beta)}</span></div>
                 </div>
             </div>
 
             <div class="card complex-card">
                 <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Análisis Técnico de Momentum</h3>
                 <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px;">
-                    <div class="kpi-box"><span class="label">Tendencia <div class="tooltip">?<div class="tooltiptext">Cruce de Medias Móviles.<br><br><b style="color:#00ff00">Comprar:</b> Golden Cross<br><b style="color:#ff0044">Vender:</b> Death Cross</div></div></span><span class="val ${trendColor}" style="font-size:12px;">${item.crossStatus.split(' ')[0]}</span></div>
-                    <div class="kpi-box"><span class="label">RSI (14) <div class="tooltip">?<div class="tooltiptext">Fuerza Relativa.<br><br><b style="color:#00ff00">Comprar:</b> < 35 (Sobreventa)<br><b style="color:#ff0044">Vender:</b> > 65 (Sobrecompra)</div></div></span><span class="val ${getColor(item.rsi, 'rsi')}">${fNum(item.rsi)}</span></div>
-                    <div class="kpi-box"><span class="label">MACD <div class="tooltip">?<div class="tooltiptext">Impulso direccional.<br><br><b style="color:#00ff00">Comprar:</b> > 0<br><b style="color:#ff0044">Vender:</b> < 0</div></div></span><span class="val ${getColor(item.macd, 'macd')}">${fNum(item.macd)}</span></div>
-                    <div class="kpi-box"><span class="label">ATR (Volat) <div class="tooltip">?<div class="tooltiptext">Variación diaria. Define tu Stop Loss.<br><br><b style="color:#00ff00">Baja Volat:</b> &lt; 2% del precio<br><b style="color:#ff0044">Alta Volat:</b> &gt; 5% del precio</div></div></span><span class="val ${getColor(item.atr, 'atr', item.price)}">${item.atr !== null ? sym + ' ' + fNum(item.atr) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">AVWAP* <div class="tooltip">?<div class="tooltiptext">VWAP Sintético Anual.<br><br><b style="color:#00ff00">Alcista:</b> Precio > AVWAP<br><b style="color:#ff0044">Bajista:</b> Precio < AVWAP</div></div></span><span class="val ${getColor(item.avwap, 'avwap', item.price)}">${item.avwap !== null ? sym + ' ' + fNum(item.avwap) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">SMA 20 <div class="tooltip">?<div class="tooltiptext">Media rápida (1 mes).<br><br><b style="color:#00ff00">Alcista:</b> Precio > SMA<br><b style="color:#ff0044">Bajista:</b> Precio < SMA</div></div></span><span class="val ${getColor(item.sma20, 'sma', item.price)}">${item.sma20 !== null ? sym + ' ' + fNum(item.sma20) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">SMA 50 <div class="tooltip">?<div class="tooltiptext">Media intermedia (3 meses).<br><br><b style="color:#00ff00">Alcista:</b> Precio > SMA<br><b style="color:#ff0044">Bajista:</b> Precio < SMA</div></div></span><span class="val ${getColor(item.sma50, 'sma', item.price)}">${item.sma50 !== null ? sym + ' ' + fNum(item.sma50) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">SMA 200 <div class="tooltip">?<div class="tooltiptext">Media histórica (1 año).<br><br><b style="color:#00ff00">Alcista:</b> Precio > SMA<br><b style="color:#ff0044">Bajista:</b> Precio < SMA</div></div></span><span class="val ${getColor(item.sma200, 'sma', item.price)}">${item.sma200 !== null ? sym + ' ' + fNum(item.sma200) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Dist. SMA 200 <div class="tooltip">?<div class="tooltiptext">Distancia a media anual.<br><br><b style="color:#00ff00">Comprar:</b> < -15%<br><b style="color:#ff0044">Vender:</b> > +30%</div></div></span><span class="val ${getColor(item.distSma200, 'distSMA')}">${item.distSma200 !== null ? fNum(item.distSma200) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Boll Sup <div class="tooltip">?<div class="tooltiptext">Techo probabilístico.<br><br><b style="color:#ff0044">Vender:</b> Toca el techo</div></div></span><span class="val" style="color:#ff0044;">${item.bollUpper !== null ? sym + ' ' + fNum(item.bollUpper) : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Boll Inf <div class="tooltip">?<div class="tooltiptext">Piso probabilístico.<br><br><b style="color:#00ff00">Comprar:</b> Toca el piso</div></div></span><span class="val" style="color:#00ff00;">${item.bollLower !== null ? sym + ' ' + fNum(item.bollLower) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Tendencia</span><span class="val ${trendColor}" style="font-size:12px;">${item.crossStatus.split(' ')[0]}</span></div>
+                    <div class="kpi-box"><span class="label">RSI (14)</span><span class="val ${getColor(item.rsi, 'rsi')}">${fNum(item.rsi)}</span></div>
+                    <div class="kpi-box"><span class="label">MACD</span><span class="val ${getColor(item.macd, 'macd')}">${fNum(item.macd)}</span></div>
+                    <div class="kpi-box"><span class="label">ATR (Volat)</span><span class="val ${getColor(item.atr, 'atr', item.price)}">${item.atr !== null ? sym + ' ' + fNum(item.atr) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">AVWAP*</span><span class="val ${getColor(item.avwap, 'avwap', item.price)}">${item.avwap !== null ? sym + ' ' + fNum(item.avwap) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">SMA 20</span><span class="val ${getColor(item.sma20, 'sma', item.price)}">${item.sma20 !== null ? sym + ' ' + fNum(item.sma20) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">SMA 50</span><span class="val ${getColor(item.sma50, 'sma', item.price)}">${item.sma50 !== null ? sym + ' ' + fNum(item.sma50) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">SMA 200</span><span class="val ${getColor(item.sma200, 'sma', item.price)}">${item.sma200 !== null ? sym + ' ' + fNum(item.sma200) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Dist. SMA 200</span><span class="val ${getColor(item.distSma200, 'distSMA')}">${item.distSma200 !== null ? fNum(item.distSma200) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Boll Sup</span><span class="val" style="color:#ff0044;">${item.bollUpper !== null ? sym + ' ' + fNum(item.bollUpper) : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Boll Inf</span><span class="val" style="color:#00ff00;">${item.bollLower !== null ? sym + ' ' + fNum(item.bollLower) : '-'}</span></div>
                 </div>
             </div>
 
             <div class="card complex-card">
                 <h3 style="margin-bottom: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; color:#fff;">Rendimiento Histórico</h3>
                 <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px;">
-                    <div class="kpi-box"><span class="label">Var. Hoy <div class="tooltip">?<div class="tooltiptext">Cambio porcentual del día.<br><br><b style="color:#00ff00">Comprar:</b> > +2%<br><b style="color:#ff0044">Vender:</b> < -2%</div></div></span><span class="val ${getColor(item.changePct, 'change')}">${item.changePct !== null ? fNum(item.changePct) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Rend. 1 Mes <div class="tooltip">?<div class="tooltiptext">Evolución de 30 días.<br><br><b style="color:#00ff00">Bueno:</b> > 0%<br><b style="color:#ff0044">Malo:</b> < 0%</div></div></span><span class="val ${getColor(item.perf1M, 'change')}">${item.perf1M !== null ? fNum(item.perf1M) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Rend. 6 Meses <div class="tooltip">?<div class="tooltiptext">Evolución semestral.<br><br><b style="color:#00ff00">Bueno:</b> > 0%<br><b style="color:#ff0044">Malo:</b> < 0%</div></div></span><span class="val ${getColor(item.perf6M, 'change')}">${item.perf6M !== null ? fNum(item.perf6M) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Rend. 1 Año <div class="tooltip">?<div class="tooltiptext">Evolución interanual.<br><br><b style="color:#00ff00">Bueno:</b> > 0%<br><b style="color:#ff0044">Malo:</b> < 0%</div></div></span><span class="val ${getColor(item.perf1Y, 'change')}">${item.perf1Y !== null ? fNum(item.perf1Y) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Volumen <div class="tooltip">?<div class="tooltiptext">Acciones operadas hoy vs Promedio.</div></div></span><span class="val" style="color:#fff;">${fmtBigNum(item.volAvg)}</span></div>
-                    <div class="kpi-box"><span class="label">Rango 52S <div class="tooltip">?<div class="tooltiptext">Piso y Techo del último año.</div></div></span><span class="val" style="color:#9ca3af; font-size:12px;">${range52}</span></div>
-                    <div class="kpi-box"><span class="label">Dist. al Máx <div class="tooltip">?<div class="tooltiptext">Caída desde su pico anual.<br><br><b style="color:#00ff00">Comprar:</b> < -20%<br><b style="color:#ff0044">Vender:</b> > -5%</div></div></span><span class="val ${getColor(item.distHigh, 'change')}">${item.distHigh !== null ? fNum(item.distHigh) + '%' : '-'}</span></div>
-                    <div class="kpi-box"><span class="label">Dist. al Mín <div class="tooltip">?<div class="tooltiptext">Subida desde el piso anual.<br><br><b style="color:#00ff00">Comprar:</b> < +5%<br><b style="color:#ff0044">Vender:</b> > +50%</div></div></span><span class="val ${getColor(item.distLow, 'change')}">${item.distLow !== null ? '+' + fNum(item.distLow) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Var. Hoy</span><span class="val ${getColor(item.changePct, 'change')}">${item.changePct !== null ? fNum(item.changePct) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Rend. 1 Mes</span><span class="val ${getColor(item.perf1M, 'change')}">${item.perf1M !== null ? fNum(item.perf1M) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Rend. 6 Meses</span><span class="val ${getColor(item.perf6M, 'change')}">${item.perf6M !== null ? fNum(item.perf6M) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Rend. 1 Año</span><span class="val ${getColor(item.perf1Y, 'change')}">${item.perf1Y !== null ? fNum(item.perf1Y) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Volumen Prom.</span><span class="val" style="color:#fff;">${fmtBigNum(item.volAvg)}</span></div>
+                    <div class="kpi-box"><span class="label">Rango 52S</span><span class="val" style="color:#9ca3af; font-size:12px;">${range52}</span></div>
+                    <div class="kpi-box"><span class="label">Dist. al Máx</span><span class="val ${getColor(item.distHigh, 'change')}">${item.distHigh !== null ? fNum(item.distHigh) + '%' : '-'}</span></div>
+                    <div class="kpi-box"><span class="label">Dist. al Mín</span><span class="val ${getColor(item.distLow, 'change')}">${item.distLow !== null ? '+' + fNum(item.distLow) + '%' : '-'}</span></div>
                 </div>
             </div>
 

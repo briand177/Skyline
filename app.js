@@ -20,6 +20,24 @@ const chartAssetFilter = document.getElementById("chartAssetFilter");
 const globalChartAssetFilter = document.getElementById("globalChartAssetFilter");
 const marketResults = document.getElementById("results");
 
+// --- LOGICA DE MENÚ MÓVIL ---
+const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+const navTabs = document.querySelector(".nav-tabs");
+const menuOverlay = document.createElement("div");
+menuOverlay.className = "menu-overlay";
+document.body.appendChild(menuOverlay);
+
+if (mobileMenuBtn) {
+    mobileMenuBtn.addEventListener("click", () => {
+        navTabs.classList.toggle("open");
+        menuOverlay.classList.toggle("open");
+    });
+}
+menuOverlay.addEventListener("click", () => {
+    navTabs.classList.remove("open");
+    menuOverlay.classList.remove("open");
+});
+
 export let instruments = [];
 export let isUSD = localStorage.getItem('skyline_is_usd') === 'true';
 export let currentMepRate = 1000; 
@@ -28,8 +46,6 @@ export let bolsaTotals = { actInvARS: 0, actInvUSD: 0, actCurARS: 0, actCurUSD: 
 export let bolsaHoldingsArr = [];
 export let transactions = JSON.parse(localStorage.getItem('bolsa_transactions')) || [];
 export let livePricesMap = {}; 
-
-// ESTADO DE ORDENAMIENTO DEL MERCADO
 export let marketSort = { col: 'symbol', asc: true };
 
 if (isUSD) {
@@ -87,7 +103,6 @@ export let currentTablePeriod = 'ALL';
 document.querySelectorAll('.time-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         const period = e.target.dataset.period;
-        
         const container = e.target.closest('.time-filters');
         if (container) {
             container.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
@@ -97,15 +112,12 @@ document.querySelectorAll('.time-btn').forEach(btn => {
                 if(b.dataset.period === period) b.classList.add('active'); else b.classList.remove('active');
             });
         }
-        
         document.querySelectorAll('.time-btn').forEach(b => {
             if(b.dataset.period === period) b.classList.add('active'); else b.classList.remove('active');
         });
 
         currentTablePeriod = period;
-        renderPortfolio();
-        renderGlobalPortfolio();
-        renderFciPortfolio();
+        renderPortfolio(); renderGlobalPortfolio(); renderFciPortfolio();
     });
 });
 
@@ -116,7 +128,6 @@ export function getAssetPerformance(ticker, period) {
 
     const lastDateStr = dates[dates.length - 1];
     let lastPrice = historicalPricesCache[ticker][lastDateStr];
-    
     if (isUSD) lastPrice = lastPrice / getHistoricalMepRate(lastDateStr);
 
     const today = new Date(`${lastDateStr}T12:00:00`); 
@@ -125,9 +136,7 @@ export function getAssetPerformance(ticker, period) {
     if (period === '1D') {
         const prevDateStr = dates[dates.length - 2];
         let prevPrice = historicalPricesCache[ticker][prevDateStr];
-        
         if (isUSD) prevPrice = prevPrice / getHistoricalMepRate(prevDateStr);
-        
         if (prevPrice > 0) return { pct: ((lastPrice - prevPrice) / prevPrice) * 100, diff: lastPrice - prevPrice };
         return null;
     }
@@ -138,24 +147,12 @@ export function getAssetPerformance(ticker, period) {
     else if (period === '1Y') targetDate.setFullYear(today.getFullYear() - 1);
     else return null;
 
-    let pastPrice = null;
-    let pastDateStr = null;
+    let pastPrice = null; let pastDateStr = null;
     for (let i = dates.length - 1; i >= 0; i--) {
-        if (new Date(`${dates[i]}T12:00:00`) <= targetDate) { 
-            pastPrice = historicalPricesCache[ticker][dates[i]]; 
-            pastDateStr = dates[i];
-            break; 
-        }
+        if (new Date(`${dates[i]}T12:00:00`) <= targetDate) { pastPrice = historicalPricesCache[ticker][dates[i]]; pastDateStr = dates[i]; break; }
     }
-    
-    if (!pastPrice) { 
-        pastPrice = historicalPricesCache[ticker][dates[0]]; 
-        pastDateStr = dates[0];
-    }
-
-    if (isUSD && pastPrice > 0) {
-        pastPrice = pastPrice / getHistoricalMepRate(pastDateStr);
-    }
+    if (!pastPrice) { pastPrice = historicalPricesCache[ticker][dates[0]]; pastDateStr = dates[0]; }
+    if (isUSD && pastPrice > 0) pastPrice = pastPrice / getHistoricalMepRate(pastDateStr);
 
     if (pastPrice > 0) return { pct: ((lastPrice - pastPrice) / pastPrice) * 100, diff: lastPrice - pastPrice };
     return null;
@@ -169,6 +166,19 @@ let globalPieChartInstance = null; let globalBarChartInstance = null; let global
 let pieChartInstance = null; let barChartInstance = null; let lineChartInstance = null;
 let globalDrawId = 0; let bolsaDrawId = 0;
 Chart.defaults.color = '#9ca3af'; 
+
+// --- FUNCIÓN ABREVIADORA DE GRÁFICOS PARA CELULARES ---
+function formatLabelMobile(valStr, isMobile) {
+    if (!isMobile) return valStr;
+    if (valStr.length <= 5 && !valStr.includes(' ')) return valStr;
+    let clean = valStr.replace(/\s+clase\s+[a-z0-9]+/i, '').trim();
+    let palabras = clean.split(' ');
+    if (palabras.length === 1) return palabras[0].substring(0, 7) + '..';
+    let res = palabras[0].substring(0, 3);
+    if (palabras.length > 1) res += ' ' + palabras[1].substring(0, 3);
+    if (palabras.length > 2) res += ' ' + palabras[2].substring(0, 2);
+    return res;
+}
 
 export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null, fciTxs = null) {
     if(fciTotals) lastFciTotals = fciTotals;
@@ -215,13 +225,9 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
 
     let html = filteredCombined.map(h => {
         let dispCur = isUSD ? h.currentUSD : h.currentARS; let dispPnl = isUSD ? h.pnlUSD : h.pnlARS;
-        
         let pct1D = null;
         if (livePricesMap[h.ticker] && livePricesMap[h.ticker].pct_change !== undefined && !isUSD) pct1D = parseFloat(livePricesMap[h.ticker].pct_change);
-        else {
-            let perf1D = getAssetPerformance(h.ticker, '1D');
-            if (perf1D) pct1D = perf1D.pct;
-        }
+        else { let perf1D = getAssetPerformance(h.ticker, '1D'); if (perf1D) pct1D = perf1D.pct; }
         
         let badgeHtml = '';
         if (pct1D !== null && !isNaN(pct1D)) {
@@ -242,9 +248,7 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
                 const nomStr = (nominal >= 0 ? '+' : '-') + sym + formatMonto(Math.abs(nominal));
                 const pClass = perf.pct >= 0 ? 'positive' : 'negative';
                 pnlCellHtml = `<td class="${pClass}">${obfuscate(nomStr)}</td><td class="${pClass}">${obfuscate(pctStr)}</td>`;
-            } else {
-                pnlCellHtml = `<td class="neutral">-</td><td class="neutral">-</td>`;
-            }
+            } else { pnlCellHtml = `<td class="neutral">-</td><td class="neutral">-</td>`; }
         }
 
         return `<tr>
@@ -261,10 +265,40 @@ export async function renderGlobalPortfolio(fciTotals = null, fciHoldings = null
     let labels = combinedHoldings.map(h => h.ticker); let values = combinedHoldings.map(h => isUSD ? h.currentUSD : h.currentARS);
     let pnlPcts = combinedHoldings.map(h => h.pnlPct); let colors = pnlPcts.map(p => p >= 0 ? '#00ff00' : '#ff0044');
 
-    if (globalPieChartInstance) { globalPieChartInstance.data.labels = labels; globalPieChartInstance.data.datasets[0].data = values; globalPieChartInstance.update(); } 
-    else { globalPieChartInstance = new Chart(document.getElementById('globalPieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } }, legend: { position: 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
-    if (globalBarChartInstance) { globalBarChartInstance.data.labels = labels; globalBarChartInstance.data.datasets[0].data = pnlPcts; globalBarChartInstance.data.datasets[0].backgroundColor = colors; globalBarChartInstance.update(); } 
-    else { globalBarChartInstance = new Chart(document.getElementById('globalBarChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { y: { ticks: { autoSkip: false }, grid: { display: false } }, x: { grid: { color: '#1f2937' } } }, plugins: { legend: { display: false }, datalabels: { color: '#fff', font: { size: 11, weight: 'bold' }, display: function(ctx) { return ctx.chart.data.labels.length <= 12; }, formatter: v => v.toFixed(1) + '%' } } } }); }
+    let isMobile = window.innerWidth <= 768;
+
+    if (globalPieChartInstance) { globalPieChartInstance.data.labels = labels; globalPieChartInstance.data.datasets[0].data = values; globalPieChartInstance.options.plugins.legend.position = isMobile ? 'bottom' : 'right'; globalPieChartInstance.update(); } 
+    else { globalPieChartInstance = new Chart(document.getElementById('globalPieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } }, legend: { position: isMobile ? 'bottom' : 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
+    
+    // --- OPCIONES GLOBALES CON ABREVIACIÓN ---
+    const barOptionsGlobal = { 
+        responsive: true, maintainAspectRatio: false, indexAxis: 'y', 
+        layout: { padding: { right: isMobile ? 40 : 0 } }, 
+        scales: { 
+            y: { 
+                ticks: { 
+                    autoSkip: false, 
+                    font: { size: isMobile ? 12 : 11 },
+                    callback: function(value) { return formatLabelMobile(this.getLabelForValue(value) || '', isMobile); }
+                }, 
+                grid: { display: false } 
+            }, 
+            x: { grid: { color: '#1f2937' }, ticks: { font: { size: isMobile ? 10 : 11 } } } 
+        }, 
+        plugins: { 
+            legend: { display: false }, 
+            datalabels: { 
+                color: '#fff', font: { size: isMobile ? 12 : 11, weight: 'bold' }, 
+                anchor: isMobile ? 'end' : 'center', align: isMobile ? 'end' : 'center',
+                offset: isMobile ? 4 : 0,
+                display: function(ctx) { return ctx.chart.data.labels.length <= 15; }, 
+                formatter: v => v.toFixed(1) + '%' 
+            } 
+        } 
+    };
+
+    if (globalBarChartInstance) { globalBarChartInstance.data.labels = labels; globalBarChartInstance.data.datasets[0].data = pnlPcts; globalBarChartInstance.data.datasets[0].backgroundColor = colors; globalBarChartInstance.options = barOptionsGlobal; globalBarChartInstance.update(); } 
+    else { globalBarChartInstance = new Chart(document.getElementById('globalBarChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, options: barOptionsGlobal }); }
 
     let normalizedFciTxs = lastFciTxs.map(tx => { let txMep = getHistoricalMepRate(tx.date); let priceARS = tx.currency === 'USD' ? tx.price * txMep : tx.price; return { id: tx.id, ticker: tx.ticker, type: tx.type, qty: tx.qty / 1000, price: priceARS, commission: 0, date: tx.date }; });
     let combinedTxs = [...transactions, ...normalizedFciTxs];
@@ -400,10 +434,7 @@ function renderPortfolio() {
     let html = filteredBolsa.map(h => {
         let pct1D = null;
         if (livePricesMap[h.ticker] && livePricesMap[h.ticker].pct_change !== undefined && !isUSD) pct1D = parseFloat(livePricesMap[h.ticker].pct_change);
-        else {
-            let perf1D = getAssetPerformance(h.ticker, '1D');
-            if (perf1D) pct1D = perf1D.pct;
-        }
+        else { let perf1D = getAssetPerformance(h.ticker, '1D'); if (perf1D) pct1D = perf1D.pct; }
         
         let badgeHtml = '';
         if (pct1D !== null && !isNaN(pct1D)) {
@@ -425,9 +456,7 @@ function renderPortfolio() {
                 const nomStr = (nominal >= 0 ? '+' : '-') + sym + formatMonto(Math.abs(nominal));
                 const pClass = perf.pct >= 0 ? 'positive' : 'negative';
                 pnlCellHtml = `<td class="${pClass}">${obfuscate(nomStr)}</td><td class="${pClass}">${obfuscate(pctStr)}</td>`;
-            } else {
-                pnlCellHtml = `<td class="neutral">-</td><td class="neutral">-</td>`;
-            }
+            } else { pnlCellHtml = `<td class="neutral">-</td><td class="neutral">-</td>`; }
         }
 
         return `<tr>
@@ -462,11 +491,40 @@ toggleNominal.addEventListener("change", applyChartVisibility); togglePct.addEve
 globalToggleNominal.addEventListener("change", applyGlobalChartVisibility); globalTogglePct.addEventListener("change", applyGlobalChartVisibility);
 
 async function updateCharts(labels, values, pnlPcts, colors) {
-    if (pieChartInstance) { pieChartInstance.data.labels = labels; pieChartInstance.data.datasets[0].data = values; pieChartInstance.update(); } 
-    else { pieChartInstance = new Chart(document.getElementById('pieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } }, legend: { position: 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
+    let isMobile = window.innerWidth <= 768;
+
+    if (pieChartInstance) { pieChartInstance.data.labels = labels; pieChartInstance.data.datasets[0].data = values; pieChartInstance.options.plugins.legend.position = isMobile ? 'bottom' : 'right'; pieChartInstance.update(); } 
+    else { pieChartInstance = new Chart(document.getElementById('pieChart'), { type: 'doughnut', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: values, backgroundColor: ['#00f7ff', '#ff00ff', '#f59e0b', '#10b981', '#6366f1', '#ec4899', '#8b5cf6'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: function(ctx) { return ' $' + new Intl.NumberFormat('es-AR', {maximumFractionDigits:0}).format(ctx.raw); } } }, legend: { position: isMobile ? 'bottom' : 'right', labels: {color: '#fff'} }, datalabels: { color: '#fff', font: {weight: 'bold'}, formatter: (value, ctx) => { let sum = 0; ctx.chart.data.datasets[0].data.forEach(data => { sum += data; }); if (sum === 0) return ""; let percentage = (value * 100 / sum); if (percentage < 3) return ""; return percentage.toFixed(1) + "%"; } } } } }); }
     
-    if (barChartInstance) { barChartInstance.data.labels = labels; barChartInstance.data.datasets[0].data = pnlPcts; barChartInstance.data.datasets[0].backgroundColor = colors; barChartInstance.update(); } 
-    else { barChartInstance = new Chart(document.getElementById('barChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { y: { ticks: { autoSkip: false }, grid: { display: false } }, x: { grid: { color: '#1f2937' } } }, plugins: { legend: { display: false }, datalabels: { color: '#fff', font: { size: 11, weight: 'bold' }, display: function(ctx) { return ctx.chart.data.labels.length <= 12; }, formatter: v => v.toFixed(1) + '%' } } } }); }
+    // --- OPCIONES DE BARRAS BURSÁTIL ---
+    const barOptionsBursa = { 
+        responsive: true, maintainAspectRatio: false, indexAxis: 'y', 
+        layout: { padding: { right: isMobile ? 40 : 0 } }, 
+        scales: { 
+            y: { 
+                ticks: { 
+                    autoSkip: false, 
+                    font: { size: isMobile ? 12 : 11 },
+                    callback: function(value) { return formatLabelMobile(this.getLabelForValue(value) || '', isMobile); }
+                }, 
+                grid: { display: false } 
+            }, 
+            x: { grid: { color: '#1f2937' }, ticks: { font: { size: isMobile ? 10 : 11 } } } 
+        }, 
+        plugins: { 
+            legend: { display: false }, 
+            datalabels: { 
+                color: '#fff', font: { size: isMobile ? 12 : 11, weight: 'bold' }, 
+                anchor: isMobile ? 'end' : 'center', align: isMobile ? 'end' : 'center',
+                offset: isMobile ? 4 : 0,
+                display: function(ctx) { return ctx.chart.data.labels.length <= 15; }, 
+                formatter: v => v.toFixed(1) + '%' 
+            } 
+        } 
+    };
+
+    if (barChartInstance) { barChartInstance.data.labels = labels; barChartInstance.data.datasets[0].data = pnlPcts; barChartInstance.data.datasets[0].backgroundColor = colors; barChartInstance.options = barOptionsBursa; barChartInstance.update(); } 
+    else { barChartInstance = new Chart(document.getElementById('barChart'), { type: 'bar', plugins: [ChartDataLabels], data: { labels, datasets: [{ data: pnlPcts, backgroundColor: colors, maxBarThickness: 40 }] }, options: barOptionsBursa }); }
     
     const filterVal = document.getElementById("chartAssetFilter").value; const filteredTxs = filterVal === 'ALL' ? [...transactions] : transactions.filter(t => t.ticker === filterVal);
     const myDrawId = ++bolsaDrawId;
@@ -480,15 +538,8 @@ function renderHistory() {
     const filteredTxs = transactions.filter(tx => matchSearch(`${tx.ticker} ${tx.type}`, filterText));
     
     historyResults.innerHTML = filteredTxs.map(tx => {
-        let dispPrice = tx.price;
-        let dispComm = tx.commission || 0;
-        
-        if (isUSD) {
-            const txMep = getHistoricalMepRate(tx.date);
-            dispPrice = tx.price / txMep;
-            dispComm = dispComm / txMep;
-        }
-
+        let dispPrice = tx.price; let dispComm = tx.commission || 0;
+        if (isUSD) { const txMep = getHistoricalMepRate(tx.date); dispPrice = tx.price / txMep; dispComm = dispComm / txMep; }
         return `<tr>
             <td>${tx.date}</td>
             <td><strong>${tx.ticker}</strong></td>
@@ -507,19 +558,14 @@ historyResults.addEventListener("click", (e) => {
     else if (target.classList.contains("btn-edit")) { const idToProcess = target.dataset.id; const tx = transactions.find(t => String(t.id) === String(idToProcess)); if(tx) { editingId = tx.id; document.getElementById("txTicker").value = tx.ticker; document.getElementById("txType").value = tx.type; document.getElementById("txQty").value = tx.qty; document.getElementById("txPrice").value = tx.price; document.getElementById("txComision").value = tx.commission || ""; document.getElementById("txDate").value = tx.date; document.getElementById("formTitle").innerText = "Editando Transacción"; document.getElementById("btnCancelEdit").style.display = "block"; openModal(); } }
 });
 
-// --- RENDER Y ORDENAMIENTO DE MERCADO ---
 export function renderMarketTable() {
     const sym = isUSD ? "u$s " : "$ "; const search = document.getElementById("searchInput").value.toLowerCase(); const activeCategory = document.querySelector(".categories .category.active")?.dataset.category || "all";
-    
     let filteredMarket = instruments.filter(i => { if (!i.symbol) return false; const matchSearch = i.symbol.toLowerCase().includes(search); const matchCat = activeCategory === "all" || i.assetType === activeCategory; return matchSearch && matchCat; });
     
     filteredMarket.sort((a, b) => {
         let valA = a[marketSort.col]; let valB = b[marketSort.col];
-        if (['c', 'pct_change', 'v', 'px_bid', 'px_ask'].includes(marketSort.col)) {
-            valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0;
-        } else {
-            valA = (valA || "").toString().toLowerCase(); valB = (valB || "").toString().toLowerCase();
-        }
+        if (['c', 'pct_change', 'v', 'px_bid', 'px_ask'].includes(marketSort.col)) { valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0; } 
+        else { valA = (valA || "").toString().toLowerCase(); valB = (valB || "").toString().toLowerCase(); }
         if (valA < valB) return marketSort.asc ? -1 : 1;
         if (valA > valB) return marketSort.asc ? 1 : -1;
         return 0;
@@ -528,7 +574,6 @@ export function renderMarketTable() {
     marketResults.innerHTML = filteredMarket.map(item => { const p = isUSD ? parseFloat(item.c) / currentMepRate : parseFloat(item.c); return `<tr><td>${item.symbol}</td><td>${sym}${formatPrecio(p)}</td><td class="${item.pct_change >= 0 ? 'positive' : 'negative'}">${item.pct_change}%</td><td>${formatMontoEntero(parseFloat(item.v))}</td><td>${formatPrecio(parseFloat(item.px_bid))}</td><td>${formatPrecio(parseFloat(item.px_ask))}</td></tr>`; }).join("");
 }
 
-// LISTENERS DE ORDENAMIENTO PARA MERCADO
 document.querySelectorAll('#marketView th.sortable').forEach(th => {
     th.addEventListener('click', () => {
         const col = th.dataset.sort;
@@ -539,20 +584,16 @@ document.querySelectorAll('#marketView th.sortable').forEach(th => {
         renderMarketTable();
     });
 });
-// ----------------------------------------
 
 document.getElementById("searchInput").addEventListener("input", renderMarketTable); 
 document.getElementById("btnCancelEdit").onclick = closeModal;
-
 document.querySelectorAll(".categories .category").forEach(btn => { btn.addEventListener("click", () => { document.querySelectorAll(".categories .category").forEach(el => el.classList.remove("active")); btn.classList.add("active"); renderMarketTable(); }); });
 
 currencySwitch.addEventListener("change", (e) => { 
     isUSD = e.target.checked; 
     localStorage.setItem('skyline_is_usd', isUSD);
-
     if (isUSD) { labelARS.classList.remove("active-currency"); labelUSD.classList.add("active-currency"); } 
     else { labelARS.classList.add("active-currency"); labelUSD.classList.remove("active-currency"); } 
-    
     renderPortfolio(); renderHistory(); renderMarketTable(); renderFciPortfolio(); renderFciHistory(); 
 });
 
@@ -561,15 +602,23 @@ document.getElementById("searchGlobalPortfolio")?.addEventListener("input", () =
 document.getElementById("searchBursatilPortfolio")?.addEventListener("input", renderPortfolio);
 document.getElementById("searchBursatilHistory")?.addEventListener("input", renderHistory);
 
+// EVENTO DE LOS BOTONES DEL MENÚ
 document.querySelectorAll(".tab-btn").forEach(btn => { 
     btn.addEventListener("click", () => { 
         document.querySelectorAll(".tab-btn, .view-section").forEach(el => el.classList.remove("active")); 
         btn.classList.add("active"); 
-        document.getElementById(btn.dataset.target).classList.add("active"); 
         
-        if(btn.dataset.target === "usaScannerView") initScanner(); 
-        if(btn.dataset.target === "fciView") initFCI(); 
-        if(btn.dataset.target === "cedearsView") initCedears(); // LA LÍNEA NUEVA
+        const targetId = btn.dataset.target;
+        document.getElementById(targetId).classList.add("active"); 
+        
+        if(targetId === "usaScannerView") initScanner(); 
+        if(targetId === "fciView") initFCI(); 
+        if(targetId === "cedearsView") initCedears(); 
+        
+        if (window.innerWidth <= 768) {
+            navTabs.classList.remove("open");
+            menuOverlay.classList.remove("open");
+        }
     }); 
 });
 
