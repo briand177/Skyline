@@ -372,8 +372,13 @@ async function loadData(category = "all") {
 }
 
 function isBonoOrLetra(ticker) {
-    if (livePricesMap[ticker] && (livePricesMap[ticker].assetType === 'bonos' || livePricesMap[ticker].assetType === 'letras')) return true;
-    return /^(AL|GD|AE|ME|TX|TV|T2|S[0-9]|X[0-9]|Y[0-9]|TD[0-9]|TC[0-9]|TO[0-9])/.test(ticker) && ticker.length <= 6;
+    // 1. Si la API ya nos dice qué es, le hacemos caso ciegamente.
+    if (livePricesMap[ticker]) {
+        return livePricesMap[ticker].assetType === 'bonos' || livePricesMap[ticker].assetType === 'letras';
+    }
+    // 2. Si la API aún no cargó, adivinamos pero EXIGIENDO números después de las letras.
+    // Así evitamos que "MELI", "META" o "TXAR" caigan en la trampa.
+    return /^(AL|GD|AE|ME|TX|TV|T2)[0-9]+/.test(ticker) || /^(S|X|Y|TD|TC|TO)[0-9]+/.test(ticker);
 }
 
 function renderPortfolio() {
